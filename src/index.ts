@@ -334,8 +334,8 @@ export default class FS {
     try {
       await fixStartsWidth<void>(async () => {
         await Filesystem.rename({
-          from: oldPath,
-          to: newPath,
+          from: this.joinToRootDir(oldPath),
+          to: this.joinToRootDir(newPath),
           directory: this.directory,
           toDirectory: this.directory,
         });
@@ -364,8 +364,8 @@ export default class FS {
     try {
       await fixStartsWidth<void>(async () => {
         await Filesystem.copy({
-          from: oldPath,
-          to: newPath,
+          from: this.joinToRootDir(oldPath),
+          to: this.joinToRootDir(newPath),
           directory: this.directory,
           toDirectory: this.directory,
         });
