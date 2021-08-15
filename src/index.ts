@@ -24,7 +24,7 @@ async function fixStartsWidth<T>(callback: { (): Promise<T> }): Promise<T> {
   const { startsWith } = String.prototype;
   // eslint-disable-next-line functional/immutable-data
   String.prototype.startsWith = function (children) {
-    return isParentFolder(this as string, children);
+    return isParentFolder(children, this as string);
   };
   const result = await callback();
   // eslint-disable-next-line functional/immutable-data
@@ -347,8 +347,17 @@ export default class FS {
           }
         });
       });
-    } catch {
-      throw new ENOENT(oldPath);
+    } catch (err) {
+      switch (err.message) {
+        case "Parent directory of the to path is a file":
+          throw new ENOTDIR(newPath);
+        case "Cannot overwrite a directory with a file":
+          throw new EISDIR(newPath);
+        case "Cannot move a directory over an existing object":
+          throw new EEXIST(newPath);
+        default:
+          throw new ENOENT(oldPath);
+      }
     }
   }
   async copy(oldPath: string, newPath: string): Promise<void> {
@@ -367,8 +376,17 @@ export default class FS {
           this.emitter?.emit("create:dir", newPath);
         }
       });
-    } catch {
-      throw new ENOENT(oldPath);
+    } catch (err) {
+      switch (err.message) {
+        case "Parent directory of the to path is a file":
+          throw new ENOTDIR(newPath);
+        case "Cannot overwrite a directory with a file":
+          throw new EISDIR(newPath);
+        case "Cannot move a directory over an existing object":
+          throw new EEXIST(newPath);
+        default:
+          throw new ENOENT(oldPath);
+      }
     }
   }
   async stat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {

@@ -1,6 +1,6 @@
 {
   "name": "capacitor-fs",
-  "version": "0.0.14",
+  "version": "0.0.13",
   "description": "This is a lightning-fs based library created to support the use of filesystem on framework capacitor.",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
@@ -40,7 +40,7 @@
     "doc:publish": "gh-pages -m \"[ci skip] Updates\" -d build/docs",
     "version": "standard-version",
     "reset-hard": "git clean -dfx && git reset --hard && yarn",
-    "prepare-release": "run-s reset-hard test cov:check doc:html version doc:publish"
+    "prepare-release": "yarn build"
   },
   "engines": {
     "node": ">=10"
