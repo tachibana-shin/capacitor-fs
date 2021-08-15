@@ -1,11 +1,11 @@
 {
   "name": "capacitor-fs",
-  "version": "0.0.10",
+  "version": "0.0.12",
   "description": "This is a lightning-fs based library created to support the use of filesystem on framework capacitor.",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
-  "repository": "https://github.com/Shin-Code-Editor/capacitor-fs",
+  "repository": "https://github.com/Shin-Tachibana/capacitor-fs",
   "license": "MIT",
   "keywords": [
     "fs",

@@ -3,7 +3,8 @@
 
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { encode } from "base-64";
-import mitt, { Emitter } from "mitt";
+import mitt from "mitt";
+import type { Emitter } from "mitt";
 import { extname, join } from "path-cross";
 
 import { Stat, StatBigInt } from "./Stat";
