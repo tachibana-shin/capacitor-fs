@@ -37,6 +37,36 @@ export type Events = {
   readonly "create:dir": string;
   readonly "remove:dir": string;
 };
+
+type OptionsConstructor = {
+  readonly rootDir?: string;
+  readonly directory?: Directory;
+  readonly base64Alway?: boolean;
+  readonly watcher?: boolean;
+};
+type OptionRecursive = {
+  readonly recursive?: boolean;
+};
+type OptionEncoding = {
+  readonly encoding?: Encoding | "buffer";
+};
+
+// eslint-disable-next-line @typescript-eslint/ban-types
+type OptionsMkdir = OptionRecursive & {};
+// eslint-disable-next-line @typescript-eslint/ban-types
+type OptionsRmdir = OptionRecursive & {};
+type OptionsWriteFile =
+  | (OptionRecursive & OptionEncoding)
+  | Encoding
+  | "buffer";
+type OptionsReadFile = OptionEncoding | Encoding | "buffer";
+type OptionsUnlink = {
+  readonly removeAll: boolean;
+};
+type OptionsStat = {
+  readonly bigint: boolean;
+};
+
 // eslint-disable-next-line functional/no-class
 export default class FS {
   // eslint-disable-next-line functional/prefer-readonly-type
@@ -49,17 +79,14 @@ export default class FS {
   // eslint-disable-next-line functional/prefer-readonly-type
   private emitter?: Emitter<Events>;
 
-  constructor({
-    rootDir = "/",
-    directory = Directory.Documents,
-    base64Alway = false,
-    watcher = true,
-  }: {
-    readonly rootDir: string;
-    readonly directory: Directory;
-    readonly base64Alway: boolean;
-    readonly watcher: boolean;
-  }) {
+  constructor(options: OptionsConstructor) {
+    const {
+      rootDir = "/",
+      directory = Directory.Documents,
+      base64Alway = false,
+      watcher = true,
+    } = options;
+
     [this.rootDir, this.directory, this.base64Alway] = [
       rootDir,
       directory,
@@ -83,16 +110,8 @@ export default class FS {
     return join("./", this.rootDir, path);
   }
 
-  async mkdir(
-    path: string,
-    {
-      recursive,
-    }: {
-      readonly recursive: boolean;
-    } = {
-      recursive: false,
-    }
-  ): Promise<void> {
+  async mkdir(path: string, options?: OptionsMkdir): Promise<void> {
+    const { recursive = false } = options || {};
     try {
       await Filesystem.mkdir({
         path: this.joinToRootDir(path),
@@ -111,16 +130,8 @@ export default class FS {
       }
     }
   }
-  async rmdir(
-    path: string,
-    {
-      recursive,
-    }: {
-      readonly recursive: boolean;
-    } = {
-      recursive: false,
-    }
-  ): Promise<void> {
+  async rmdir(path: string, options?: OptionsRmdir): Promise<void> {
+    const { recursive = false } = options || {};
     try {
       await Filesystem.rmdir({
         path: this.joinToRootDir(path),
@@ -152,17 +163,16 @@ export default class FS {
   async writeFile(
     path: string,
     data: ArrayBuffer | Uint8Array | Blob | string,
-    {
-      encoding,
-      recursive,
-    }: {
-      readonly encoding?: Encoding | "buffer";
-      readonly recursive: boolean;
-    } = {
-      encoding: Encoding.UTF8,
-      recursive: false,
-    }
+    options?: OptionsWriteFile
   ) {
+    // eslint-disable-next-line functional/no-let
+    let { encoding } =
+      typeof options === "string"
+        ? { encoding: options }
+        : options || { encoding: Encoding.UTF8 };
+    const { recursive = false } =
+      typeof options === "string" ? {} : options || {};
+
     try {
       if ((await this.stat(path)).isDirectory()) {
         throw new EISDIR(path);
@@ -232,19 +242,14 @@ export default class FS {
   }
   async readFile(
     path: string,
-    options:
-      | {
-          readonly encoding?: Encoding | "buffer";
-        }
-      | string = Encoding.UTF8
+    options: OptionsReadFile = Encoding.UTF8
   ): Promise<string | ArrayBuffer> {
-    const encoding = (
+    const encoding =
       typeof options === "object"
         ? options.encoding
         : typeof options === "string"
         ? options
-        : Encoding.UTF8
-    ) as Encoding | "buffer" | undefined;
+        : Encoding.UTF8;
 
     try {
       if (this.base64Alway) {
@@ -276,16 +281,8 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  async unlink(
-    path: string,
-    {
-      removeAll,
-    }: {
-      readonly removeAll: boolean;
-    } = {
-      removeAll: false,
-    }
-  ): Promise<void> {
+  async unlink(path: string, options?: OptionsUnlink): Promise<void> {
+    const { removeAll = false } = options || {};
     const stat = await this.stat(path);
 
     if (stat.isDirectory()) {
@@ -350,16 +347,8 @@ export default class FS {
       throw new ENOENT(oldPath);
     }
   }
-  async stat(
-    path: string,
-    {
-      bigint,
-    }: {
-      readonly bigint: boolean;
-    } = {
-      bigint: false,
-    }
-  ): Promise<Stat | StatBigInt> {
+  async stat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {
+    const { bigint = false } = options || {};
     try {
       const stat = await Filesystem.stat({
         path: this.joinToRootDir(path),
@@ -380,16 +369,8 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  lstat(
-    path: string,
-    {
-      bigint,
-    }: {
-      readonly bigint: boolean;
-    } = {
-      bigint: false,
-    }
-  ): Promise<Stat | StatBigInt> {
+  lstat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {
+    const { bigint = false } = options || {};
     return this.stat(path, { bigint });
   }
   symlink(target: string, path: string): Promise<void> {
