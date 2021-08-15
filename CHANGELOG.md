@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.14](https://github.com/Shin-Tachibana/capacitor-fs/compare/v0.0.10...v0.0.14) (2021-08-15)
+
 ### [0.0.12](https://github.com/Shin-Tachibana/capacitor-fs/compare/v0.0.10...v0.0.12) (2021-08-15)
 
 ### [0.0.10](https://github.com/Shin-Code-Editor/capacitor-fs/compare/v0.0.8...v0.0.10) (2021-08-15)
