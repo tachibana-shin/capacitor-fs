@@ -9,6 +9,7 @@ import { extname, join } from "path-cross";
 import { Stat, StatBigInt } from "./Stat";
 import { EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM } from "./errors";
 import {
+  alwayBase64,
   arrayBufferToBase64,
   base64ToArrayBuffer,
   isParentFolder,
@@ -48,7 +49,7 @@ type OptionRecursive = {
   readonly recursive?: boolean;
 };
 type OptionEncoding = {
-  readonly encoding?: Encoding | "buffer";
+  readonly encoding?: Encoding | "buffer" | "base64";
 };
 
 // eslint-disable-next-line @typescript-eslint/ban-types
@@ -58,8 +59,9 @@ type OptionsRmdir = OptionRecursive & {};
 type OptionsWriteFile =
   | (OptionRecursive & OptionEncoding)
   | Encoding
-  | "buffer";
-type OptionsReadFile = OptionEncoding | Encoding | "buffer";
+  | "buffer"
+  | "base64";
+type OptionsReadFile = OptionEncoding | Encoding | "buffer" | "base64";
 type OptionsUnlink = {
   readonly removeAll: boolean;
 };
@@ -187,7 +189,7 @@ export default class FS {
       data = await data.arrayBuffer();
     }
 
-    if (this.base64Alway || encoding === "buffer") {
+    if (this.base64Alway || encoding === "buffer" || encoding === "base64") {
       if (data instanceof ArrayBuffer) {
         data = arrayBufferToBase64(data);
       } else if (data instanceof Uint8Array) {
@@ -261,6 +263,9 @@ export default class FS {
         if (encoding === "buffer") {
           return base64ToArrayBuffer(data);
         }
+        if (encoding === "base64") {
+          return alwayBase64(data);
+        }
 
         return rawText(data);
       }
@@ -269,11 +274,15 @@ export default class FS {
       const { data } = await Filesystem.readFile({
         path: this.joinToRootDir(path),
         directory: this.directory,
-        encoding: encoding === "buffer" ? void 0 : encoding,
+        encoding:
+          encoding === "buffer" || encoding === "base64" ? void 0 : encoding,
       });
 
       if (encoding === "buffer") {
         return textToArrayBuffer(data);
+      }
+      if (encoding === "base64") {
+        return alwayBase64(data);
       }
 
       return data;
@@ -390,6 +399,20 @@ export default class FS {
   }
   du(path: string): Promise<number> {
     return this.stat(path).then(({ size }) => Number(size));
+  }
+  async getUri(path: string): Promise<string> {
+    try {
+      return decodeURIComponent(
+        (
+          await Filesystem.getUri({
+            path: this.joinToRootDir(path),
+            directory: this.directory,
+          })
+        ).uri
+      ).replace(/^[a-z]+:\/\//iy, "");
+    } catch {
+      throw new Error("ENOENT");
+    }
   }
 
   watch<Key extends keyof Events | "write:dir">(

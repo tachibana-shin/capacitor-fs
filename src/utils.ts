@@ -73,3 +73,16 @@ export function pathEquals(a: string, b: string): boolean {
 export function pathEqualsOrParent(path1: string, path2: string): boolean {
   return pathEquals(path1, path2) || isParentFolder(path1, path2);
 }
+ 
+export function alwayBase64(str: string): string {
+  // eslint-disable-next-line no-extra-boolean-cast
+  if (!!str) {
+    if (isBase64(str)) {
+      return str;
+    }
+
+    return encode(str);
+  } else {
+    return str;
+  }
+}
