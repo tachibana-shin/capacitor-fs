@@ -203,11 +203,25 @@ export default class FS {
 
       encoding = void 0;
     } else {
-      if (data instanceof ArrayBuffer || data instanceof Uint8Array) {
-        // eslint-disable-next-line functional/prefer-readonly-type
-        data = String.fromCharCode.apply(null, data as unknown as number[]);
+      if (data instanceof ArrayBuffer) {
+        data = String.fromCharCode.apply(
+          null,
+          (encoding === Encoding.UTF16
+            ? new Uint16Array(data)
+            : // eslint-disable-next-line functional/prefer-readonly-type
+              new Uint8Array(data)) as unknown as number[]
+        );
       }
-      encoding = Encoding.UTF16;
+
+      if (data instanceof Uint8Array) {
+        data = String.fromCharCode.apply(
+          null,
+          (encoding === Encoding.UTF16
+            ? new Uint16Array(data)
+            : // eslint-disable-next-line functional/prefer-readonly-type
+              data) as unknown as number[]
+        );
+      }
     }
 
     try {
