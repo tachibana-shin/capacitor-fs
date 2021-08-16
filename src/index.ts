@@ -1,7 +1,11 @@
 /* eslint-disable functional/no-throw-statement */
 /* eslint-disable functional/no-this-expression */
 
-import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
+import {
+  Directory,
+  Filesystem,
+  Encoding as FSEncoding,
+} from "@capacitor/filesystem";
 import { encode } from "base-64";
 import minimatch from "minimatch";
 import mitt from "mitt";
@@ -32,6 +36,8 @@ async function fixStartsWidth<T>(callback: { (): Promise<T> }): Promise<T> {
   return result;
 }
 
+type Encoding = "utf8" | "utf16" | "ascii" | "buffer" | "base64";
+
 export type Events = {
   readonly "write:file": string;
   readonly "remove:file": string;
@@ -52,19 +58,15 @@ type OptionRecursive = {
   readonly recursive?: boolean;
 };
 type OptionEncoding = {
-  readonly encoding?: Encoding | "buffer" | "base64";
+  readonly encoding?: Encoding;
 };
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 type OptionsMkdir = OptionRecursive & {};
 // eslint-disable-next-line @typescript-eslint/ban-types
 type OptionsRmdir = OptionRecursive & {};
-type OptionsWriteFile =
-  | (OptionRecursive & OptionEncoding)
-  | Encoding
-  | "buffer"
-  | "base64";
-type OptionsReadFile = OptionEncoding | Encoding | "buffer" | "base64";
+type OptionsWriteFile = (OptionRecursive & OptionEncoding) | Encoding;
+type OptionsReadFile = OptionEncoding | Encoding;
 type OptionsUnlink = {
   readonly removeAll: boolean;
 };
@@ -174,7 +176,7 @@ export default class FS {
     let { encoding } =
       typeof options === "string"
         ? { encoding: options }
-        : options || { encoding: Encoding.UTF8 };
+        : options || { encoding: "base64" };
     const { recursive = false } =
       typeof options === "string" ? {} : options || {};
 
@@ -192,39 +194,22 @@ export default class FS {
       data = await data.arrayBuffer();
     }
 
-    if (this.base64Alway || encoding === "buffer" || encoding === "base64") {
-      if (data instanceof ArrayBuffer) {
-        data = arrayBufferToBase64(data);
-      } else if (data instanceof Uint8Array) {
-        data = encode(
-          // eslint-disable-next-line functional/prefer-readonly-type
-          String.fromCharCode.apply(null, data as unknown as number[])
-        );
-      } else {
+    if (this.base64Alway) {
+      if (typeof data === "string") {
         data = encode(data);
       }
+      encoding = "base64";
+    }
 
-      encoding = void 0;
-    } else {
-      if (data instanceof ArrayBuffer) {
-        data = String.fromCharCode.apply(
-          null,
-          (encoding === Encoding.UTF16
-            ? new Uint16Array(data)
-            : // eslint-disable-next-line functional/prefer-readonly-type
-              new Uint8Array(data)) as unknown as number[]
-        );
-      }
-
-      if (data instanceof Uint8Array) {
-        data = String.fromCharCode.apply(
-          null,
-          (encoding === Encoding.UTF16
-            ? new Uint16Array(data)
-            : // eslint-disable-next-line functional/prefer-readonly-type
-              data) as unknown as number[]
-        );
-      }
+    if (data instanceof ArrayBuffer) {
+      data = arrayBufferToBase64(data);
+      encoding = "base64";
+    } else if (data instanceof Uint8Array) {
+      data = encode(
+        // eslint-disable-next-line functional/prefer-readonly-type
+        String.fromCharCode.apply(null, data as unknown as number[])
+      );
+      encoding = "base64";
     }
 
     try {
@@ -232,7 +217,10 @@ export default class FS {
         await Filesystem.writeFile({
           path: this.joinToRootDir(path),
           directory: this.directory,
-          encoding,
+          encoding:
+            encoding === "base64" || encoding === "buffer"
+              ? void 0
+              : (encoding as FSEncoding),
           data,
           recursive,
         });
@@ -242,7 +230,10 @@ export default class FS {
           await Filesystem.writeFile({
             path: this.joinToRootDir(path),
             directory: this.directory,
-            encoding,
+            encoding:
+              encoding === "base64" || encoding === "buffer"
+                ? void 0
+                : (encoding as FSEncoding),
             data,
             recursive: false,
           });
@@ -288,7 +279,9 @@ export default class FS {
         path: this.joinToRootDir(path),
         directory: this.directory,
         encoding:
-          encoding === "buffer" || encoding === "base64" ? void 0 : encoding,
+          encoding === "buffer" || encoding === "base64"
+            ? void 0
+            : (encoding as FSEncoding),
       });
 
       if (encoding === "buffer") {
