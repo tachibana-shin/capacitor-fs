@@ -261,7 +261,7 @@ export default class FS {
   }
   async readFile(
     path: string,
-    options: OptionsReadFile = Encoding.UTF8
+    options: OptionsReadFile = "buffer"
   ): Promise<string | ArrayBuffer> {
     const encoding =
       typeof options === "object"
@@ -459,12 +459,6 @@ export default class FS {
     }
   }
 
-  /**
-   *
-   * @param type
-   * @param cb
-   * @returns Function cancel event
-   */
   public on<Type extends keyof Events>(
     type: Type,
     cb: {
