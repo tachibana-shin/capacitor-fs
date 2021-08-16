@@ -40,7 +40,7 @@
     "doc:publish": "gh-pages -m \"[ci skip] Updates\" -d build/docs",
     "version": "standard-version",
     "reset-hard": "git clean -dfx && git reset --hard && yarn",
-    "prepare": "yarn version"
+    "prepare-release": "yarn version"
   },
   "engines": {
     "node": ">=10"
@@ -49,6 +49,7 @@
     "@capacitor/core": "^3.1.2",
     "@capacitor/filesystem": "^1.0.2",
     "base-64": "^1.0.0",
+    "minimatch": "^3.0.4",
     "mitt": "^3.0.0",
     "path-cross": "^0.0.3"
   },
@@ -56,6 +57,7 @@
     "@ava/typescript": "^1.1.1",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/base-64": "^1.0.0",
+    "@types/minimatch": "^3.0.5",
     "@types/node": "^16.6.1",
     "@typescript-eslint/eslint-plugin": "^4.0.1",
     "@typescript-eslint/parser": "^4.0.1",

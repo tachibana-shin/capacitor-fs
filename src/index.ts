@@ -3,6 +3,7 @@
 
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { encode } from "base-64";
+import minimatch from "minimatch";
 import mitt from "mitt";
 import type { Emitter } from "mitt";
 import { extname, join } from "path-cross";
@@ -15,7 +16,6 @@ import {
   base64ToArrayBuffer,
   isParentFolder,
   pathEquals,
-  pathEqualsOrParent,
   rawText,
   textToArrayBuffer,
 } from "./utils";
@@ -80,7 +80,7 @@ export default class FS {
   private base64Alway: boolean;
   public readonly promises = this;
   // eslint-disable-next-line functional/prefer-readonly-type
-  private emitter?: Emitter<Events>;
+  public emitter?: Emitter<Events>;
 
   constructor(options: OptionsConstructor) {
     const {
@@ -340,12 +340,17 @@ export default class FS {
           toDirectory: this.directory,
         });
 
-        this.stat(newPath).then((stat) => {
-          if (stat.isDirectory()) {
-            this.emitter?.emit("remove:dir", oldPath);
-            this.emitter?.emit("create:dir", newPath);
-          }
-        });
+        if (this.emitter) {
+          this.stat(newPath).then((stat) => {
+            if (stat.isDirectory()) {
+              this.emitter?.emit("remove:dir", oldPath);
+              this.emitter?.emit("create:dir", newPath);
+            } else {
+              this.emitter?.emit("remove:file", oldPath);
+              this.emitter?.emit("write:file", newPath);
+            }
+          });
+        }
       });
     } catch (err) {
       switch (err.message) {
@@ -371,11 +376,15 @@ export default class FS {
         });
       });
 
-      this.stat(newPath).then((stat) => {
-        if (stat.isDirectory()) {
-          this.emitter?.emit("create:dir", newPath);
-        }
-      });
+      if (this.emitter) {
+        this.stat(newPath).then((stat) => {
+          if (stat.isDirectory()) {
+            this.emitter?.emit("create:dir", newPath);
+          } else {
+            this.emitter?.emit("write:file", newPath);
+          }
+        });
+      }
     } catch (err) {
       switch (err.message) {
         case "Parent directory of the to path is a file":
@@ -448,45 +457,87 @@ export default class FS {
     }
   }
 
-  watch<Key extends keyof Events | "write:dir">(
-    name: Key,
-    path: string | false | { (): string | false },
+  public on<Type extends keyof Events>(
+    type: Type,
     cb: {
-      (type: Key, emitter: string): void;
-    },
-    absolute = false
-  ): {
-    (): void;
-  } {
-    if (name === "write:dir") {
-      const watchers = [
-        this.watch("write:file" as Key, path, cb),
-        this.watch("remove:file" as Key, path, cb),
-      ];
-
-      return () => void watchers.forEach((watcher) => void watcher());
+      (param: Events[Type]): void;
     }
+  ) {
+    this.emitter?.on(type, cb);
 
-    const cbr = (emitter: string) => {
-      if (path instanceof Function) {
+    return () => void this.emitter?.off(type, cb);
+  }
+  async watch(
+    path:
+      | string
+      | readonly string[]
+      | {
+          (): string | readonly string[];
+        },
+    cb: {
+      (param: { readonly path: string; readonly action: keyof Events }): void;
+    },
+    {
+      absolute,
+      type,
+      miniOpts,
+    }: {
+      readonly absolute: boolean;
+      readonly type: "file" | "dir" | "*";
+      readonly miniOpts: minimatch.IOptions;
+    } = {
+      absolute: false,
+      type: "*",
+      miniOpts: {},
+    }
+  ) {
+    const handler = (action: keyof Events, emitter: string) => {
+      if (typeof path === "function") {
         path = path();
       }
+      if (typeof path === "string") {
+        path = [path];
+      }
 
-      if (path === false) {
-        cb(name, emitter);
+      if (absolute) {
+        if (path.some((item) => pathEquals(item, emitter))) {
+          cb({
+            path: emitter,
+            action,
+          });
+        }
       } else {
-        if (
-          absolute
-            ? pathEquals(path, emitter)
-            : pathEqualsOrParent(path, emitter)
-        ) {
-          cb(name, emitter);
+        if (path.filter((item) => minimatch(emitter, item, miniOpts))) {
+          cb({
+            path: emitter,
+            action,
+          });
         }
       }
     };
 
-    this.emitter?.on(name, cbr);
+    const watchers = [];
 
-    return () => void this.emitter?.off(name, cbr);
+    switch (type) {
+      case "file":
+        // eslint-disable-next-line functional/immutable-data
+        watchers.push(
+          this.on("write:file", (emitter) => handler("write:file", emitter)),
+          this.on("remove:file", (emitter) => handler("write:file", emitter))
+        );
+        break;
+      case "dir":
+        // eslint-disable-next-line functional/immutable-data
+        watchers.push(
+          this.on("create:dir", (emitter) => handler("write:file", emitter)),
+          this.on("remove:dir", (emitter) => handler("write:file", emitter))
+        );
+        break;
+      case "*":
+        // eslint-disable-next-line functional/immutable-data
+        watchers.push(
+          this.emitter?.on("*", (emitter) => handler("write:file", emitter))
+        );
+    }
   }
 }
