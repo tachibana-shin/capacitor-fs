@@ -38,6 +38,8 @@ export type Events = {
 
   readonly "create:dir": string;
   readonly "remove:dir": string;
+
+  readonly "*": string;
 };
 
 type OptionsConstructor = {
@@ -457,17 +459,25 @@ export default class FS {
     }
   }
 
+  /**
+   *
+   * @param type
+   * @param cb
+   * @returns Function cancel event
+   */
   public on<Type extends keyof Events>(
     type: Type,
     cb: {
       (param: Events[Type]): void;
     }
-  ) {
+  ): {
+    (): void;
+  } {
     this.emitter?.on(type, cb);
 
     return () => void this.emitter?.off(type, cb);
   }
-  async watch(
+  watch(
     path:
       | string
       | readonly string[]
@@ -490,7 +500,9 @@ export default class FS {
       type: "*",
       miniOpts: {},
     }
-  ) {
+  ): {
+    (): void;
+  } {
     const handler = (action: keyof Events, emitter: string) => {
       if (typeof path === "function") {
         path = path();
@@ -516,7 +528,8 @@ export default class FS {
       }
     };
 
-    const watchers = [];
+    // eslint-disable-next-line functional/prefer-readonly-type
+    const watchers: { (): void }[] = [];
 
     switch (type) {
       case "file":
@@ -536,8 +549,10 @@ export default class FS {
       case "*":
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.emitter?.on("*", (emitter) => handler("write:file", emitter))
+          this.on("*", (emitter) => handler("write:file", emitter))
         );
     }
+
+    return () => void watchers.forEach((watcher) => void watcher());
   }
 }
