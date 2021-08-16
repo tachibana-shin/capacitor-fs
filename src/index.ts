@@ -263,12 +263,8 @@ export default class FS {
     path: string,
     options: OptionsReadFile = "buffer"
   ): Promise<string | ArrayBuffer> {
-    const encoding =
-      typeof options === "object"
-        ? options.encoding
-        : typeof options === "string"
-        ? options
-        : Encoding.UTF8;
+    const { encoding = "buffer" } =
+      typeof options === "string" ? { encoding: options } : options || {};
 
     try {
       if (this.base64Alway) {
@@ -278,7 +274,7 @@ export default class FS {
         }); //  alway result base64
 
         if (encoding === "buffer") {
-          return base64ToArrayBuffer(data);
+          return base64ToArrayBuffer(alwayBase64(data));
         }
         if (encoding === "base64") {
           return alwayBase64(data);
