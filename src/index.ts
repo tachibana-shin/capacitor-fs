@@ -57,25 +57,6 @@ type OptionsConstructor = {
   readonly base64Alway?: boolean;
   readonly watcher?: boolean;
 };
-type OptionRecursive = {
-  readonly recursive?: boolean;
-};
-type OptionEncoding = {
-  readonly encoding?: Encoding;
-};
-
-// eslint-disable-next-line @typescript-eslint/ban-types
-type OptionsMkdir = OptionRecursive & {};
-// eslint-disable-next-line @typescript-eslint/ban-types
-type OptionsRmdir = OptionRecursive & {};
-type OptionsWriteFile = (OptionRecursive & OptionEncoding) | Encoding;
-type OptionsReadFile = OptionEncoding | Encoding;
-type OptionsUnlink = {
-  readonly removeAll: boolean;
-};
-type OptionsStat = {
-  readonly bigint: boolean;
-};
 
 // eslint-disable-next-line functional/no-class
 export default class FS {
@@ -89,13 +70,13 @@ export default class FS {
   // eslint-disable-next-line functional/prefer-readonly-type
   public emitter?: Emitter<Events>;
 
-  constructor(options: OptionsConstructor) {
+  constructor(options?: OptionsConstructor) {
     const {
       rootDir = "/",
       directory = Directory.Documents,
       base64Alway = false,
       watcher = true,
-    } = options;
+    } = options || {};
 
     [this.rootDir, this.directory, this.base64Alway] = [
       rootDir,
@@ -120,7 +101,12 @@ export default class FS {
     return join("./", this.rootDir, path);
   }
 
-  async mkdir(path: string, options?: OptionsMkdir): Promise<void> {
+  async mkdir(
+    path: string,
+    options?: {
+      readonly recursive?: boolean;
+    }
+  ): Promise<void> {
     const { recursive = false } = options || {};
     try {
       await Filesystem.mkdir({
@@ -140,7 +126,12 @@ export default class FS {
       }
     }
   }
-  async rmdir(path: string, options?: OptionsRmdir): Promise<void> {
+  async rmdir(
+    path: string,
+    options?: {
+      readonly recursive?: boolean;
+    }
+  ): Promise<void> {
     const { recursive = false } = options || {};
     try {
       await Filesystem.rmdir({
@@ -173,7 +164,12 @@ export default class FS {
   async writeFile(
     path: string,
     data: ArrayBuffer | Blob | string,
-    options?: OptionsWriteFile
+    options?:
+      | {
+          readonly recursive?: boolean;
+          readonly encoding?: Encoding;
+        }
+      | Encoding
   ) {
     // eslint-disable-next-line functional/no-let
     let { encoding } =
@@ -249,12 +245,11 @@ export default class FS {
       }
     }
   }
-  async readFile(path: string): Promise<ArrayBuffer>;
   async readFile(
     path: string,
-    options:
+    options?:
       | {
-          readonly encoding: EncodingBuffer;
+          readonly encoding?: EncodingBuffer;
         }
       | EncodingBuffer
   ): Promise<ArrayBuffer>;
@@ -268,11 +263,19 @@ export default class FS {
   ): Promise<string>;
   async readFile(
     path: string,
-    options: OptionsReadFile
+    options:
+      | {
+          readonly encoding: Encoding;
+        }
+      | Encoding
   ): Promise<string | ArrayBuffer>;
   async readFile(
     path: string,
-    options: OptionsReadFile = "buffer"
+    options:
+      | {
+          readonly encoding?: Encoding;
+        }
+      | Encoding = "buffer"
   ): Promise<string | ArrayBuffer> {
     const { encoding = "buffer" } =
       typeof options === "string" ? { encoding: options } : options || {};
@@ -316,7 +319,12 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  async unlink(path: string, options?: OptionsUnlink): Promise<void> {
+  async unlink(
+    path: string,
+    options?: {
+      readonly removeAll: boolean;
+    }
+  ): Promise<void> {
     const { removeAll = false } = options || {};
     const stat = await this.stat(path);
 
@@ -415,8 +423,18 @@ export default class FS {
     path: string,
     options: { readonly bigint: true }
   ): Promise<StatBigInt>;
-  async stat(path: string, options: OptionsStat): Promise<Stat | StatBigInt>;
-  async stat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {
+  async stat(
+    path: string,
+    options: {
+      readonly bigint: boolean;
+    }
+  ): Promise<Stat | StatBigInt>;
+  async stat(
+    path: string,
+    options?: {
+      readonly bigint: boolean;
+    }
+  ): Promise<Stat | StatBigInt> {
     const { bigint = false } = options || {};
     try {
       const stat = await Filesystem.stat({
@@ -438,7 +456,12 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  lstat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {
+  lstat(
+    path: string,
+    options?: {
+      readonly bigint: boolean;
+    }
+  ): Promise<Stat | StatBigInt> {
     const { bigint = false } = options || {};
     return this.stat(path, { bigint });
   }
