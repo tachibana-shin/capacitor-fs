@@ -179,7 +179,7 @@ export default class FS {
     let { encoding } =
       typeof options === "string"
         ? { encoding: options }
-        : options || { encoding: "base64" };
+        : options || { encoding: "utf8" };
     const { recursive = false } =
       typeof options === "string" ? {} : options || {};
 
@@ -199,16 +199,15 @@ export default class FS {
     if (data instanceof Uint8Array || data instanceof Uint16Array) {
       data = data.buffer;
     }
-
-    if (this.base64Alway) {
-      if (typeof data === "string") {
-        data = encode(data);
-      }
+    if (data instanceof ArrayBuffer) {
+      data = arrayBufferToBase64(data);
       encoding = "base64";
     }
 
-    if (data instanceof ArrayBuffer) {
-      data = arrayBufferToBase64(data);
+    if (this.base64Alway && typeof data === "string") {
+      if (encoding !== "base64") {
+        data = encode(data);
+      }
       encoding = "base64";
     }
 
