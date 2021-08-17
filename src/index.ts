@@ -20,6 +20,7 @@ import {
   base64ToArrayBuffer,
   isParentFolder,
   pathEquals,
+  pathEqualsOrParent,
   rawText,
   textToArrayBuffer,
 } from "./utils";
@@ -36,7 +37,9 @@ async function fixStartsWidth<T>(callback: { (): Promise<T> }): Promise<T> {
   return result;
 }
 
-type Encoding = "utf8" | "utf16" | "ascii" | "buffer" | "base64";
+type EncodingBuffer = "buffer";
+type EncodingString = "utf8" | "utf16" | "ascii" | "base64";
+type Encoding = EncodingString | EncodingBuffer;
 
 export type Events = {
   readonly "write:file": string;
@@ -169,7 +172,7 @@ export default class FS {
   }
   async writeFile(
     path: string,
-    data: ArrayBuffer | Uint8Array | Blob | string,
+    data: ArrayBuffer | Blob | string,
     options?: OptionsWriteFile
   ) {
     // eslint-disable-next-line functional/no-let
@@ -193,6 +196,9 @@ export default class FS {
     if (data instanceof Blob) {
       data = await data.arrayBuffer();
     }
+    if (data instanceof Uint8Array || data instanceof Uint16Array) {
+      data = data.buffer;
+    }
 
     if (this.base64Alway) {
       if (typeof data === "string") {
@@ -203,12 +209,6 @@ export default class FS {
 
     if (data instanceof ArrayBuffer) {
       data = arrayBufferToBase64(data);
-      encoding = "base64";
-    } else if (data instanceof Uint8Array) {
-      data = encode(
-        // eslint-disable-next-line functional/prefer-readonly-type
-        String.fromCharCode.apply(null, data as unknown as number[])
-      );
       encoding = "base64";
     }
 
@@ -250,6 +250,27 @@ export default class FS {
       }
     }
   }
+  async readFile(path: string): Promise<ArrayBuffer>;
+  async readFile(
+    path: string,
+    options:
+      | {
+          readonly encoding: EncodingBuffer;
+        }
+      | EncodingBuffer
+  ): Promise<ArrayBuffer>;
+  async readFile(
+    path: string,
+    options:
+      | {
+          readonly encoding: EncodingString;
+        }
+      | EncodingString
+  ): Promise<string>;
+  async readFile(
+    path: string,
+    options: OptionsReadFile
+  ): Promise<string | ArrayBuffer>;
   async readFile(
     path: string,
     options: OptionsReadFile = "buffer"
@@ -389,6 +410,13 @@ export default class FS {
       }
     }
   }
+  async stat(path: string): Promise<Stat>;
+  async stat(path: string, options: { readonly bigint: false }): Promise<Stat>;
+  async stat(
+    path: string,
+    options: { readonly bigint: true }
+  ): Promise<StatBigInt>;
+  async stat(path: string, options: OptionsStat): Promise<Stat | StatBigInt>;
   async stat(path: string, options?: OptionsStat): Promise<Stat | StatBigInt> {
     const { bigint = false } = options || {};
     try {
@@ -419,13 +447,13 @@ export default class FS {
     return this.writeFile(`${target}.lnk`, path);
   }
   readlink(path: string): Promise<string> {
-    return this.readFile(path) as Promise<string>;
+    return this.readFile(path, "utf8");
   }
 
   async backFile(filepath: string): Promise<number> {
     const res = await fetch(filepath, { method: "HEAD" });
     if (res.status === 200) {
-      return (res.headers.get("content-length") || 0) as number;
+      return Number(res.headers.get("content-length") || 0);
     } else {
       throw new Error("ENOENT");
     }
@@ -468,20 +496,25 @@ export default class FS {
           (): string | readonly string[];
         },
     cb: {
-      (param: { readonly path: string; readonly action: keyof Events }): void;
+      (param: { readonly path?: string; readonly action: keyof Events }): void;
     },
     {
-      absolute,
+      mode,
       type,
       miniOpts,
+      immediate,
+      exists,
     }: {
-      readonly absolute: boolean;
+      readonly mode?: "absolute" | "relative" | "abstract";
       readonly type: "file" | "dir" | "*";
-      readonly miniOpts: minimatch.IOptions;
+      readonly miniOpts?: minimatch.IOptions;
+      readonly immediate?: boolean;
+      readonly exists?: boolean;
     } = {
-      absolute: false,
+      mode: void 0,
       type: "*",
       miniOpts: {},
+      immediate: false,
     }
   ): {
     (): void;
@@ -494,8 +527,20 @@ export default class FS {
         path = [path];
       }
 
-      if (absolute) {
-        if (path.some((item) => pathEquals(item, emitter))) {
+      if (mode) {
+        if (
+          path.some((item): boolean => {
+            if (mode === "absolute") {
+              return pathEquals(item, emitter);
+            } else if (mode === "relative") {
+              return isParentFolder(item, emitter);
+            } else if (mode === "abstract") {
+              return pathEqualsOrParent(item, emitter);
+            }
+
+            return false;
+          })
+        ) {
           cb({
             path: emitter,
             action,
@@ -514,26 +559,57 @@ export default class FS {
     // eslint-disable-next-line functional/prefer-readonly-type
     const watchers: { (): void }[] = [];
 
-    switch (type) {
-      case "file":
+    if (type === "file" || type === "*") {
+      if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("write:file", (emitter) => handler("write:file", emitter)),
-          this.on("remove:file", (emitter) => handler("write:file", emitter))
+          this.on("write:file", (emitter) => handler("write:file", emitter))
         );
-        break;
-      case "dir":
+      }
+      if (exists === undefined || exists === false) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("create:dir", (emitter) => handler("write:file", emitter)),
-          this.on("remove:dir", (emitter) => handler("write:file", emitter))
+          this.on("remove:file", (emitter) => handler("remove:file", emitter))
         );
-        break;
-      case "*":
+      }
+    }
+    if (type === "dir" || type === "*") {
+      if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("*", (emitter) => handler("write:file", emitter))
+          this.on("create:dir", (emitter) => handler("create:dir", emitter))
         );
+      }
+      if (exists === undefined || exists === false) {
+        // eslint-disable-next-line functional/immutable-data
+        watchers.push(
+          this.on("remove:dir", (emitter) => handler("remove:dir", emitter))
+        );
+      }
+    }
+
+    if (immediate) {
+      if (type === "file" || type === "*") {
+        if (exists === undefined || exists === true) {
+          cb({
+            action: "write:file",
+          });
+        } else {
+          cb({
+            action: "remove:file",
+          });
+        }
+      } else {
+        if (exists === undefined || exists === true) {
+          cb({
+            action: "create:dir",
+          });
+        } else {
+          cb({
+            action: "remove:dir",
+          });
+        }
+      }
     }
 
     return () => void watchers.forEach((watcher) => void watcher());
