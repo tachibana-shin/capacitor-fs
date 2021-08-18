@@ -10,7 +10,7 @@ import { encode } from "base-64";
 import minimatch from "minimatch";
 import mitt from "mitt";
 import type { Emitter } from "mitt";
-import { extname, join } from "path-cross";
+import { extname, join, relative } from "path-cross";
 
 import { Stat, StatBigInt } from "./Stat";
 import { EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM } from "./errors";
@@ -109,6 +109,9 @@ export default class FS {
   private joinToRootDir(path: string): string {
     return join("./", this.rootDir, path);
   }
+  private relativeByRootDir(path: string): string {
+    return relative(this.joinToRootDir(""), this.joinToRootDir(path));
+  }
 
   async mkdir(
     path: string,
@@ -123,7 +126,7 @@ export default class FS {
         directory: this.directory,
         recursive,
       });
-      this.emitter?.emit("create:dir", path);
+      this.emitter?.emit("create:dir", this.relativeByRootDir(path));
     } catch (err) {
       switch (err.message) {
         case "Current directory does already exist.":
@@ -148,7 +151,7 @@ export default class FS {
         directory: this.directory,
         recursive,
       });
-      this.emitter?.emit("remove:dir", path);
+      this.emitter?.emit("remove:dir", this.relativeByRootDir(path));
     } catch (err) {
       switch (err.message) {
         case "Folder is not empty":
@@ -228,7 +231,7 @@ export default class FS {
           data,
           recursive,
         });
-        this.emitter?.emit("write:file", path);
+        this.emitter?.emit("write:file", this.relativeByRootDir(path));
       } catch (err) {
         if (recursive) {
           await Filesystem.writeFile({
@@ -241,7 +244,7 @@ export default class FS {
             data,
             recursive: false,
           });
-          this.emitter?.emit("write:file", path);
+          this.emitter?.emit("write:file", this.relativeByRootDir(path));
         } else {
           throw err;
         }
@@ -353,7 +356,7 @@ export default class FS {
         path: this.joinToRootDir(path),
         directory: this.directory,
       });
-      this.emitter?.emit("remove:file", path);
+      this.emitter?.emit("remove:file", this.relativeByRootDir(path));
     } catch {
       throw new ENOENT(path);
     }
@@ -371,20 +374,23 @@ export default class FS {
         if (this.emitter) {
           this.stat(newPath).then((stat) => {
             if (stat.isDirectory()) {
-              this.emitter?.emit("remove:dir", oldPath);
-              this.emitter?.emit("create:dir", newPath);
+              this.emitter?.emit("remove:dir", this.relativeByRootDir(oldPath));
+              this.emitter?.emit("create:dir", this.relativeByRootDir(newPath));
 
               this.emitter?.emit("move:dir", {
-                from: oldPath,
-                to: newPath,
+                from: this.relativeByRootDir(oldPath),
+                to: this.relativeByRootDir(newPath),
               });
             } else {
-              this.emitter?.emit("remove:file", oldPath);
-              this.emitter?.emit("write:file", newPath);
+              this.emitter?.emit(
+                "remove:file",
+                this.relativeByRootDir(oldPath)
+              );
+              this.emitter?.emit("write:file", this.relativeByRootDir(newPath));
 
               this.emitter?.emit("move:file", {
-                from: oldPath,
-                to: newPath,
+                from: this.relativeByRootDir(oldPath),
+                to: this.relativeByRootDir(newPath),
               });
             }
           });
@@ -417,9 +423,9 @@ export default class FS {
       if (this.emitter) {
         this.stat(newPath).then((stat) => {
           if (stat.isDirectory()) {
-            this.emitter?.emit("create:dir", newPath);
+            this.emitter?.emit("create:dir", this.relativeByRootDir(newPath));
           } else {
-            this.emitter?.emit("write:file", newPath);
+            this.emitter?.emit("write:file", this.relativeByRootDir(newPath));
           }
         });
       }
