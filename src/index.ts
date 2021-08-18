@@ -49,6 +49,15 @@ export type Events = {
   readonly "remove:dir": string;
 
   readonly "*": string;
+
+  readonly "move:file": {
+    readonly from: string;
+    readonly to: string;
+  };
+  readonly "move:dir": {
+    readonly from: string;
+    readonly to: string;
+  };
 };
 
 type OptionsConstructor = {
@@ -364,9 +373,19 @@ export default class FS {
             if (stat.isDirectory()) {
               this.emitter?.emit("remove:dir", oldPath);
               this.emitter?.emit("create:dir", newPath);
+
+              this.emitter?.emit("move:dir", {
+                from: oldPath,
+                to: newPath,
+              });
             } else {
               this.emitter?.emit("remove:file", oldPath);
               this.emitter?.emit("write:file", newPath);
+
+              this.emitter?.emit("move:file", {
+                from: oldPath,
+                to: newPath,
+              });
             }
           });
         }
@@ -528,7 +547,7 @@ export default class FS {
       exists,
     }: {
       readonly mode?: "absolute" | "relative" | "abstract";
-      readonly type: "file" | "dir" | "*";
+      readonly type?: "file" | "dir" | "*";
       readonly miniOpts?: minimatch.IOptions;
       readonly immediate?: boolean;
       readonly exists?: boolean;
