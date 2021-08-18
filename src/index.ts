@@ -124,6 +124,18 @@ export default class FS {
       this.relativeByRootDir(path)
     );
   }
+  public replaceParentDir(path: string, from: string, to: string): string {
+    if (this.isParentDir(from, path)) {
+      return this.relativeByRootDir(
+        join(
+          this.relativeByRootDir(to),
+          relative(this.relativeByRootDir(from), this.relativeByRootDir(path))
+        )
+      );
+    }
+
+    return path;
+  }
 
   async mkdir(
     path: string,
