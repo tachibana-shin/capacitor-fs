@@ -109,8 +109,20 @@ export default class FS {
   private joinToRootDir(path: string): string {
     return join("./", this.rootDir, path);
   }
-  private relativeByRootDir(path: string): string {
+  public relativeByRootDir(path: string): string {
     return relative(this.joinToRootDir(""), this.joinToRootDir(path));
+  }
+  public isEqual(path1: string, path2: string): boolean {
+    return pathEquals(
+      this.relativeByRootDir(path1),
+      this.relativeByRootDir(path2)
+    );
+  }
+  public isParentDir(parent: string, path: string): boolean {
+    return isParentFolder(
+      this.relativeByRootDir(parent),
+      this.relativeByRootDir(path)
+    );
   }
 
   async mkdir(
