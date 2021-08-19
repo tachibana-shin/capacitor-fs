@@ -1,6 +1,6 @@
 {
   "name": "capacitor-fs",
-  "version": "0.0.33",
+  "version": "0.0.34",
   "description": "This is a lightning-fs based library created to support the use of filesystem on framework capacitor.",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
@@ -47,6 +47,7 @@
     "@capacitor/core": "^3.1.2",
     "@capacitor/filesystem": "^1.0.2",
     "base-64": "^1.0.0",
+    "capacitor-fs": "^0.0.33",
     "minimatch": "^3.0.4",
     "mitt": "^3.0.0",
     "path-cross": "^0.0.3"
