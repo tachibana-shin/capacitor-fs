@@ -1107,6 +1107,18 @@ caniuse-lite@^1.0.30001248:
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001251.tgz#6853a606ec50893115db660f82c094d18f096d85"
   integrity sha512-HOe1r+9VkU4TFmnU70z+r7OLmtR+/chB1rdcJUeQlAinjEeb0cKL20tlAtOagNZhbrtLnCvV19B4FmF1rgzl6A==
 
+capacitor-fs@^0.0.33:
+  version "0.0.33"
+  resolved "https://registry.yarnpkg.com/capacitor-fs/-/capacitor-fs-0.0.33.tgz#96c32394fc7c2082171fa90499d6071a848288f7"
+  integrity sha512-evJrgZb5lvv/IK17ZxJb+HAAr24BgImZhclyBbB6BcEJgvC+pwMdZ5jZIzUDZxFodDT3X+R+rlB0PzlAESs6MA==
+  dependencies:
+    "@capacitor/core" "^3.1.2"
+    "@capacitor/filesystem" "^1.0.2"
+    base-64 "^1.0.0"
+    minimatch "^3.0.4"
+    mitt "^3.0.0"
+    path-cross "^0.0.3"
+
 chalk@^2.0.0, chalk@^2.4.1, chalk@^2.4.2:
   version "2.4.2"
   resolved "https://registry.yarnpkg.com/chalk/-/chalk-2.4.2.tgz#cd42541677a54333cf541a49108c1432b44c9424"
