@@ -505,6 +505,15 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
+  async exists(path: string): Promise<boolean> {
+    try {
+      await this.stat(path);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
   lstat(
     path: string,
     options?: {

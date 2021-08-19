@@ -108,6 +108,11 @@ Options object:
 | ---------- | ------------------ | -------------------------------- |
 | `bigint` | boolean = false | result StatBigInt |
 
+
+### `fs.exists(path: string): Promise<boolean>`
+
+Check file is exists
+
 ### `fs.lstat(path: string): Promise<Stat | StatBigInt>`
 
 Like `fs.stat` except that paths to symlinks return the symlink stats not the file stats of the symlink's target.
