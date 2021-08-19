@@ -105,6 +105,37 @@ export default class FS {
       }
     }
   }
+  async initRootDir(autofix = false): Promise<void> {
+    try {
+      const stat = await this.stat("/");
+
+      if (autofix) {
+        if (stat.isDirectory() === false) {
+          await this.unlink("/");
+
+          throw new Error("ROOT_IS_NOT_DIR");
+        }
+      }
+    } catch {
+      await this.mkdir("", {
+        recursive: true,
+      });
+    }
+  }
+  async clear(): Promise<void> {
+    try {
+      await Promise.all(
+        (
+          await this.readdir("")
+        ).map((item) =>
+          this.unlink(item, {
+            removeAll: true,
+          })
+        )
+      );
+    // eslint-disable-next-line no-empty
+    } catch {}
+  }
 
   private joinToRootDir(path: string): string {
     return join("./", this.rootDir, path);
@@ -358,7 +389,7 @@ export default class FS {
   async unlink(
     path: string,
     options?: {
-      readonly removeAll: boolean;
+      readonly removeAll?: boolean;
     }
   ): Promise<void> {
     const { removeAll = false } = options || {};
