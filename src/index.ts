@@ -1,6 +1,6 @@
 /* eslint-disable functional/no-throw-statement */
 
-import {
+import type {
   Filesystem as CFS,
   Directory,
   Encoding as FSEncoding,
@@ -61,21 +61,21 @@ export type Events = {
 
 type OptionsConstructor = {
   readonly rootDir?: string;
-  readonly directory?: Directory;
+  readonly directory: Directory;
   readonly base64Alway?: boolean;
   readonly watcher?: boolean;
 };
 
 export function createFilesystem(
   Filesystem: typeof CFS,
-  options?: OptionsConstructor
+  options: OptionsConstructor
 ) {
   const {
     rootDir = "/",
-    directory = Directory.Documents,
+    directory,
     base64Alway = false,
     watcher = true,
-  } = options || {};
+  } = options
 
   const emitter = watcher ? mitt<Events>() : void 0;
 
@@ -729,7 +729,7 @@ export function createFilesystem(
 
 // eslint-disable-next-line functional/no-class
 export default (class FS {
-  constructor(Filesystem: typeof CFS, options?: OptionsConstructor) {
+  constructor(Filesystem: typeof CFS, options: OptionsConstructor) {
     return createFilesystem(Filesystem, options);
   }
-}) as unknown as typeof createFilesystem
+} as unknown as typeof createFilesystem);
