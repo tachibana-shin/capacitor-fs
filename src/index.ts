@@ -1,15 +1,13 @@
 /* eslint-disable functional/no-throw-statement */
-/* eslint-disable functional/no-this-expression */
 
 import {
+  Filesystem as CFS,
   Directory,
-  Filesystem,
   Encoding as FSEncoding,
 } from "@capacitor/filesystem";
 import { encode } from "base-64";
 import minimatch from "minimatch";
 import mitt from "mitt";
-import type { Emitter } from "mitt";
 import { extname, join, relative } from "path-cross";
 
 import { Stat, StatBigInt } from "./Stat";
@@ -29,6 +27,7 @@ async function fixStartsWidth<T>(callback: { (): Promise<T> }): Promise<T> {
   const { startsWith } = String.prototype;
   // eslint-disable-next-line functional/immutable-data
   String.prototype.startsWith = function (children) {
+    // eslint-disable-next-line functional/no-this-expression
     return isParentFolder(children, this as string);
   };
   const result = await callback();
@@ -67,100 +66,69 @@ type OptionsConstructor = {
   readonly watcher?: boolean;
 };
 
-// eslint-disable-next-line functional/no-class
-export default class FS {
-  // eslint-disable-next-line functional/prefer-readonly-type
-  private rootDir: string;
-  // eslint-disable-next-line functional/prefer-readonly-type
-  private directory: Directory;
-  // eslint-disable-next-line functional/prefer-readonly-type
-  private base64Alway: boolean;
-  public readonly promises = this;
-  // eslint-disable-next-line functional/prefer-readonly-type
-  public emitter?: Emitter<Events>;
+export function createFilesystem(
+  Filesystem: typeof CFS,
+  options?: OptionsConstructor
+) {
+  const {
+    rootDir = "/",
+    directory = Directory.Documents,
+    base64Alway = false,
+    watcher = true,
+  } = options || {};
 
-  constructor(options?: OptionsConstructor) {
-    const {
-      rootDir = "/",
-      directory = Directory.Documents,
-      base64Alway = false,
-      watcher = true,
-    } = options || {};
+  const emitter = watcher ? mitt<Events>() : void 0;
 
-    [this.rootDir, this.directory, this.base64Alway] = [
-      rootDir,
-      directory,
-      base64Alway,
-    ];
-
-    if (watcher) {
-      this.emitter = mitt<Events>();
-    }
-
-    // eslint-disable-next-line functional/no-loop-statement
-    for (const prop in this) {
-      if (typeof this[prop] === "function") {
-        // eslint-disable-next-line @typescript-eslint/ban-types
-        this[prop] = (this[prop] as unknown as Function).bind(this);
-      }
-    }
-  }
-  async initRootDir(autofix = false): Promise<void> {
+  async function initRootDir(autofix = false): Promise<void> {
     try {
-      const stat = await this.stat("/");
+      const fstat = await stat("/");
 
       if (autofix) {
-        if (stat.isDirectory() === false) {
-          await this.unlink("/");
+        if (fstat.isDirectory() === false) {
+          await unlink("/");
 
           throw new Error("ROOT_IS_NOT_DIR");
         }
       }
     } catch {
-      await this.mkdir("", {
+      await mkdir("", {
         recursive: true,
       });
     }
   }
-  async clear(): Promise<void> {
+  async function clear(): Promise<void> {
     try {
       await Promise.all(
         (
-          await this.readdir("")
+          await readdir("")
         ).map((item) =>
-          this.unlink(item, {
+          unlink(item, {
             removeAll: true,
           })
         )
       );
-    // eslint-disable-next-line no-empty
+      // eslint-disable-next-line no-empty
     } catch {}
   }
 
-  private joinToRootDir(path: string): string {
-    return join("./", this.rootDir, path);
+  function joinToRootDir(path: string): string {
+    return join("./", rootDir, path);
   }
-  public relativeByRootDir(path: string): string {
-    return relative(this.joinToRootDir(""), this.joinToRootDir(path));
+  function relativeByRootDir(path: string): string {
+    return relative(joinToRootDir(""), joinToRootDir(path));
   }
-  public isEqual(path1: string, path2: string): boolean {
-    return pathEquals(
-      this.relativeByRootDir(path1),
-      this.relativeByRootDir(path2)
-    );
+  function isEqual(path1: string, path2: string): boolean {
+    return pathEquals(relativeByRootDir(path1), relativeByRootDir(path2));
   }
-  public isParentDir(parent: string, path: string): boolean {
-    return isParentFolder(
-      this.relativeByRootDir(parent),
-      this.relativeByRootDir(path)
-    );
+  function isParentDir(parent: string, path: string): boolean {
+    return isParentFolder(relativeByRootDir(parent), relativeByRootDir(path));
   }
-  public replaceParentDir(path: string, from: string, to: string): string {
-    if (this.isParentDir(from, path)) {
-      return this.relativeByRootDir(
+  function replaceParentDir(path: string, from: string, to: string): string {
+    if (isParentDir(from, path)) {
+      return relativeByRootDir(
         join(
-          this.relativeByRootDir(to),
-          relative(this.relativeByRootDir(from), this.relativeByRootDir(path))
+          relativeByRootDir(to),
+          relative(relativeByRootDir(from), relativeByRootDir(path))
         )
       );
     }
@@ -168,7 +136,7 @@ export default class FS {
     return path;
   }
 
-  async mkdir(
+  async function mkdir(
     path: string,
     options?: {
       readonly recursive?: boolean;
@@ -177,11 +145,11 @@ export default class FS {
     const { recursive = false } = options || {};
     try {
       await Filesystem.mkdir({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
         recursive,
       });
-      this.emitter?.emit("create:dir", this.relativeByRootDir(path));
+      emitter?.emit("create:dir", relativeByRootDir(path));
     } catch (err) {
       switch (err.message) {
         case "Current directory does already exist.":
@@ -193,7 +161,7 @@ export default class FS {
       }
     }
   }
-  async rmdir(
+  async function rmdir(
     path: string,
     options?: {
       readonly recursive?: boolean;
@@ -202,11 +170,11 @@ export default class FS {
     const { recursive = false } = options || {};
     try {
       await Filesystem.rmdir({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
         recursive,
       });
-      this.emitter?.emit("remove:dir", this.relativeByRootDir(path));
+      emitter?.emit("remove:dir", relativeByRootDir(path));
     } catch (err) {
       switch (err.message) {
         case "Folder is not empty":
@@ -218,17 +186,17 @@ export default class FS {
       }
     }
   }
-  async readdir(path: string): Promise<readonly string[]> {
-    if ((await this.stat(path)).isDirectory()) {
+  async function readdir(path: string): Promise<readonly string[]> {
+    if ((await stat(path)).isDirectory()) {
       return await Filesystem.readdir({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
       }).then(({ files }) => files);
     } else {
       throw new ENOTDIR(path);
     }
   }
-  async writeFile(
+  async function writeFile(
     path: string,
     data: ArrayBuffer | Blob | string,
     options?:
@@ -247,7 +215,7 @@ export default class FS {
       typeof options === "string" ? {} : options || {};
 
     try {
-      if ((await this.stat(path)).isDirectory()) {
+      if ((await stat(path)).isDirectory()) {
         throw new EISDIR(path);
       }
     } catch (err) {
@@ -267,7 +235,7 @@ export default class FS {
       encoding = "base64";
     }
 
-    if (this.base64Alway && typeof data === "string") {
+    if (base64Alway && typeof data === "string") {
       if (encoding !== "base64") {
         data = encode(data);
       }
@@ -277,8 +245,8 @@ export default class FS {
     try {
       try {
         await Filesystem.writeFile({
-          path: this.joinToRootDir(path),
-          directory: this.directory,
+          path: joinToRootDir(path),
+          directory: directory,
           encoding:
             encoding === "base64" || encoding === "buffer"
               ? void 0
@@ -286,12 +254,12 @@ export default class FS {
           data,
           recursive,
         });
-        this.emitter?.emit("write:file", this.relativeByRootDir(path));
+        emitter?.emit("write:file", relativeByRootDir(path));
       } catch (err) {
         if (recursive) {
           await Filesystem.writeFile({
-            path: this.joinToRootDir(path),
-            directory: this.directory,
+            path: joinToRootDir(path),
+            directory: directory,
             encoding:
               encoding === "base64" || encoding === "buffer"
                 ? void 0
@@ -299,7 +267,7 @@ export default class FS {
             data,
             recursive: false,
           });
-          this.emitter?.emit("write:file", this.relativeByRootDir(path));
+          emitter?.emit("write:file", relativeByRootDir(path));
         } else {
           throw err;
         }
@@ -312,7 +280,7 @@ export default class FS {
       }
     }
   }
-  async readFile(
+  async function readFile(
     path: string,
     options?:
       | {
@@ -320,7 +288,7 @@ export default class FS {
         }
       | EncodingBuffer
   ): Promise<ArrayBuffer>;
-  async readFile(
+  async function readFile(
     path: string,
     options:
       | {
@@ -328,7 +296,7 @@ export default class FS {
         }
       | EncodingString
   ): Promise<string>;
-  async readFile(
+  async function readFile(
     path: string,
     options:
       | {
@@ -336,7 +304,7 @@ export default class FS {
         }
       | Encoding
   ): Promise<string | ArrayBuffer>;
-  async readFile(
+  async function readFile(
     path: string,
     options:
       | {
@@ -348,10 +316,10 @@ export default class FS {
       typeof options === "string" ? { encoding: options } : options || {};
 
     try {
-      if (this.base64Alway) {
+      if (base64Alway) {
         const { data } = await Filesystem.readFile({
-          path: this.joinToRootDir(path),
-          directory: this.directory,
+          path: joinToRootDir(path),
+          directory: directory,
         }); //  alway result base64
 
         if (encoding === "buffer") {
@@ -366,8 +334,8 @@ export default class FS {
 
       // don't enable base64 mode
       const { data } = await Filesystem.readFile({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
         encoding:
           encoding === "buffer" || encoding === "base64"
             ? void 0
@@ -386,18 +354,18 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  async unlink(
+  async function unlink(
     path: string,
     options?: {
       readonly removeAll?: boolean;
     }
   ): Promise<void> {
     const { removeAll = false } = options || {};
-    const stat = await this.stat(path);
+    const fstat = await stat(path);
 
-    if (stat.isDirectory()) {
+    if (fstat.isDirectory()) {
       if (removeAll) {
-        await this.rmdir(path, {
+        await rmdir(path, {
           recursive: true,
         });
 
@@ -408,44 +376,41 @@ export default class FS {
 
     try {
       await Filesystem.deleteFile({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
       });
-      this.emitter?.emit("remove:file", this.relativeByRootDir(path));
+      emitter?.emit("remove:file", relativeByRootDir(path));
     } catch {
       throw new ENOENT(path);
     }
   }
-  async rename(oldPath: string, newPath: string): Promise<void> {
+  async function rename(oldPath: string, newPath: string): Promise<void> {
     try {
       await fixStartsWidth<void>(async () => {
         await Filesystem.rename({
-          from: this.joinToRootDir(oldPath),
-          to: this.joinToRootDir(newPath),
-          directory: this.directory,
-          toDirectory: this.directory,
+          from: joinToRootDir(oldPath),
+          to: joinToRootDir(newPath),
+          directory: directory,
+          toDirectory: directory,
         });
 
-        if (this.emitter) {
-          this.stat(newPath).then((stat) => {
+        if (emitter) {
+          stat(newPath).then((stat) => {
             if (stat.isDirectory()) {
-              this.emitter?.emit("remove:dir", this.relativeByRootDir(oldPath));
-              this.emitter?.emit("create:dir", this.relativeByRootDir(newPath));
+              emitter?.emit("remove:dir", relativeByRootDir(oldPath));
+              emitter?.emit("create:dir", relativeByRootDir(newPath));
 
-              this.emitter?.emit("move:dir", {
-                from: this.relativeByRootDir(oldPath),
-                to: this.relativeByRootDir(newPath),
+              emitter?.emit("move:dir", {
+                from: relativeByRootDir(oldPath),
+                to: relativeByRootDir(newPath),
               });
             } else {
-              this.emitter?.emit(
-                "remove:file",
-                this.relativeByRootDir(oldPath)
-              );
-              this.emitter?.emit("write:file", this.relativeByRootDir(newPath));
+              emitter?.emit("remove:file", relativeByRootDir(oldPath));
+              emitter?.emit("write:file", relativeByRootDir(newPath));
 
-              this.emitter?.emit("move:file", {
-                from: this.relativeByRootDir(oldPath),
-                to: this.relativeByRootDir(newPath),
+              emitter?.emit("move:file", {
+                from: relativeByRootDir(oldPath),
+                to: relativeByRootDir(newPath),
               });
             }
           });
@@ -464,23 +429,23 @@ export default class FS {
       }
     }
   }
-  async copy(oldPath: string, newPath: string): Promise<void> {
+  async function copy(oldPath: string, newPath: string): Promise<void> {
     try {
       await fixStartsWidth<void>(async () => {
         await Filesystem.copy({
-          from: this.joinToRootDir(oldPath),
-          to: this.joinToRootDir(newPath),
-          directory: this.directory,
-          toDirectory: this.directory,
+          from: joinToRootDir(oldPath),
+          to: joinToRootDir(newPath),
+          directory: directory,
+          toDirectory: directory,
         });
       });
 
-      if (this.emitter) {
-        this.stat(newPath).then((stat) => {
+      if (emitter) {
+        stat(newPath).then((stat) => {
           if (stat.isDirectory()) {
-            this.emitter?.emit("create:dir", this.relativeByRootDir(newPath));
+            emitter?.emit("create:dir", relativeByRootDir(newPath));
           } else {
-            this.emitter?.emit("write:file", this.relativeByRootDir(newPath));
+            emitter?.emit("write:file", relativeByRootDir(newPath));
           }
         });
       }
@@ -497,19 +462,22 @@ export default class FS {
       }
     }
   }
-  async stat(path: string): Promise<Stat>;
-  async stat(path: string, options: { readonly bigint: false }): Promise<Stat>;
-  async stat(
+  async function stat(path: string): Promise<Stat>;
+  async function stat(
+    path: string,
+    options: { readonly bigint: false }
+  ): Promise<Stat>;
+  async function stat(
     path: string,
     options: { readonly bigint: true }
   ): Promise<StatBigInt>;
-  async stat(
+  async function stat(
     path: string,
     options: {
       readonly bigint: boolean;
     }
   ): Promise<Stat | StatBigInt>;
-  async stat(
+  async function stat(
     path: string,
     options?: {
       readonly bigint: boolean;
@@ -518,8 +486,8 @@ export default class FS {
     const { bigint = false } = options || {};
     try {
       const stat = await Filesystem.stat({
-        path: this.joinToRootDir(path),
-        directory: this.directory,
+        path: joinToRootDir(path),
+        directory: directory,
       });
 
       if (extname(path) === ".lnk") {
@@ -536,32 +504,32 @@ export default class FS {
       throw new ENOENT(path);
     }
   }
-  async exists(path: string): Promise<boolean> {
+  async function exists(path: string): Promise<boolean> {
     try {
-      await this.stat(path);
+      await stat(path);
 
       return true;
     } catch {
       return false;
     }
   }
-  lstat(
+  function lstat(
     path: string,
     options?: {
       readonly bigint: boolean;
     }
   ): Promise<Stat | StatBigInt> {
     const { bigint = false } = options || {};
-    return this.stat(path, { bigint });
+    return stat(path, { bigint });
   }
-  symlink(target: string, path: string): Promise<void> {
-    return this.writeFile(`${target}.lnk`, path);
+  function symlink(target: string, path: string): Promise<void> {
+    return writeFile(`${target}.lnk`, path);
   }
-  readlink(path: string): Promise<string> {
-    return this.readFile(path, "utf8");
+  function readlink(path: string): Promise<string> {
+    return readFile(path, "utf8");
   }
 
-  async backFile(filepath: string): Promise<number> {
+  async function backFile(filepath: string): Promise<number> {
     const res = await fetch(filepath, { method: "HEAD" });
     if (res.status === 200) {
       return Number(res.headers.get("content-length") || 0);
@@ -569,16 +537,16 @@ export default class FS {
       throw new Error("ENOENT");
     }
   }
-  du(path: string): Promise<number> {
-    return this.stat(path).then(({ size }) => Number(size));
+  function du(path: string): Promise<number> {
+    return stat(path).then(({ size }) => Number(size));
   }
-  async getUri(path: string): Promise<string> {
+  async function getUri(path: string): Promise<string> {
     try {
       return decodeURIComponent(
         (
           await Filesystem.getUri({
-            path: this.joinToRootDir(path),
-            directory: this.directory,
+            path: joinToRootDir(path),
+            directory: directory,
           })
         ).uri
       ).replace(/^[a-z]+:\/\//iy, "");
@@ -587,7 +555,7 @@ export default class FS {
     }
   }
 
-  public on<Type extends keyof Events>(
+  function on<Type extends keyof Events>(
     type: Type,
     cb: {
       (param: Events[Type]): void;
@@ -595,11 +563,11 @@ export default class FS {
   ): {
     (): void;
   } {
-    this.emitter?.on(type, cb);
+    emitter?.on(type, cb);
 
-    return () => void this.emitter?.off(type, cb);
+    return () => void emitter?.off(type, cb);
   }
-  watch(
+  function watch(
     path:
       | string
       | readonly string[]
@@ -674,13 +642,13 @@ export default class FS {
       if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("write:file", (emitter) => handler("write:file", emitter))
+          on("write:file", (emitter) => handler("write:file", emitter))
         );
       }
       if (exists === undefined || exists === false) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("remove:file", (emitter) => handler("remove:file", emitter))
+          on("remove:file", (emitter) => handler("remove:file", emitter))
         );
       }
     }
@@ -688,13 +656,13 @@ export default class FS {
       if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("create:dir", (emitter) => handler("create:dir", emitter))
+          on("create:dir", (emitter) => handler("create:dir", emitter))
         );
       }
       if (exists === undefined || exists === false) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          this.on("remove:dir", (emitter) => handler("remove:dir", emitter))
+          on("remove:dir", (emitter) => handler("remove:dir", emitter))
         );
       }
     }
@@ -725,4 +693,43 @@ export default class FS {
 
     return () => void watchers.forEach((watcher) => void watcher());
   }
+
+  const __proto__ = {
+    initRootDir,
+    clear,
+    relativeByRootDir,
+    isEqual,
+    isParentDir,
+    replaceParentDir,
+    mkdir,
+    rmdir,
+    readdir,
+    writeFile,
+    readFile,
+    unlink,
+    rename,
+    copy,
+    stat,
+    exists,
+    lstat,
+    symlink,
+    readlink,
+    backFile,
+    du,
+    getUri,
+    on,
+    watch,
+  };
+
+  return {
+    ...__proto__,
+    promises: __proto__,
+  };
 }
+
+// eslint-disable-next-line functional/no-class
+export default (class FS {
+  constructor(Filesystem: typeof CFS, options?: OptionsConstructor) {
+    return createFilesystem(Filesystem, options);
+  }
+}) as unknown as typeof createFilesystem

@@ -4,14 +4,14 @@ This is a lightning-fs based library created to support the use of filesystem on
 
 ## Usage
 
-### `new FS(opts)`
+### `createFilesystem(Filesystem, opts?)`
 First, create or open a "filesystem".
 
 ```js
-import FS from "capacitor-fs";
-import { Directory } from "@capacitor/filesystem";
+import { createFilesystem } from "capacitor-fs";
+import { Filesystem, Directory } from "@capacitor/filesystem";
 
-const fs = new FS({
+const fs = createFilesystem(Filesystem, {
    rootDir: "/",
    directory: Directory.Documents,
    base64Alway: false,
