@@ -8,7 +8,7 @@ import type {
 import { encode } from "base-64";
 import minimatch from "minimatch";
 import mitt from "mitt";
-import { basename, extname, join, relative } from "path-cross";
+import { dirname, extname, join, relative } from "path-cross";
 
 import { Stat, StatBigInt } from "./Stat";
 import { EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM } from "./errors";
@@ -145,7 +145,7 @@ export function createFilesystem(
       throw new EEXIST(path);
     }
     if (recursive === false) {
-      const parent = basename(path);
+      const parent = dirname(path);
       // if not exists -> stat throw ENO
       const statParent = await stat(parent);
 
@@ -211,8 +211,8 @@ export function createFilesystem(
     const { recursive = false } =
       typeof options === "string" ? {} : options || {};
 
-    if (recursive === false && (await exists(basename(path))) === false) {
-      throw new ENOENT(basename(path));
+    if (recursive === false && (await exists(dirname(path))) === false) {
+      throw new ENOENT(dirname(path));
     }
 
     try {
@@ -450,8 +450,8 @@ export function createFilesystem(
   async function rename(oldPath: string, newPath: string): Promise<void> {
     const statOld = await stat(oldPath); // if not exists throw ENOENT
 
-    if ((await stat(basename(newPath))).isDirectory() === false) {
-      throw new ENOTDIR(basename(newPath));
+    if ((await stat(dirname(newPath))).isDirectory() === false) {
+      throw new ENOTDIR(dirname(newPath));
     }
 
     const newPathIsDirectory = await isDirectory(newPath);
@@ -499,8 +499,8 @@ export function createFilesystem(
   async function copy(oldPath: string, newPath: string): Promise<void> {
     const statOld = await stat(oldPath); // if not exists throw ENOENT
 
-    if ((await stat(basename(newPath))).isDirectory() === false) {
-      throw new ENOTDIR(basename(newPath));
+    if ((await stat(dirname(newPath))).isDirectory() === false) {
+      throw new ENOTDIR(dirname(newPath));
     }
 
     const newPathIsDirectory = await isDirectory(newPath);
