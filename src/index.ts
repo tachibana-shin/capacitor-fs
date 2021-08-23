@@ -8,7 +8,7 @@ import type {
 import { encode } from "base-64";
 import minimatch from "minimatch";
 import mitt from "mitt";
-import { extname, join, relative } from "path-cross";
+import { basename, extname, join, relative } from "path-cross";
 
 import { Stat, StatBigInt } from "./Stat";
 import { EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM } from "./errors";
@@ -75,11 +75,11 @@ export function createFilesystem(
     directory,
     base64Alway = false,
     watcher = true,
-  } = options
+  } = options;
 
   const emitter = watcher ? mitt<Events>() : void 0;
 
-  async function initRootDir(autofix = false): Promise<void> {
+  async function init(autofix = false): Promise<void> {
     try {
       const fstat = await stat("/");
 
@@ -114,22 +114,19 @@ export function createFilesystem(
   function joinToRootDir(path: string): string {
     return join("./", rootDir, path);
   }
-  function relativeByRootDir(path: string): string {
+  function relatively(path: string): string {
     return relative(joinToRootDir(""), joinToRootDir(path));
   }
   function isEqual(path1: string, path2: string): boolean {
-    return pathEquals(relativeByRootDir(path1), relativeByRootDir(path2));
+    return pathEquals(relatively(path1), relatively(path2));
   }
   function isParentDir(parent: string, path: string): boolean {
-    return isParentFolder(relativeByRootDir(parent), relativeByRootDir(path));
+    return isParentFolder(relatively(parent), relatively(path));
   }
   function replaceParentDir(path: string, from: string, to: string): string {
     if (isParentDir(from, path)) {
-      return relativeByRootDir(
-        join(
-          relativeByRootDir(to),
-          relative(relativeByRootDir(from), relativeByRootDir(path))
-        )
+      return relatively(
+        join(relatively(to), relative(relatively(from), relatively(path)))
       );
     }
 
@@ -143,23 +140,26 @@ export function createFilesystem(
     }
   ): Promise<void> {
     const { recursive = false } = options || {};
-    try {
-      await Filesystem.mkdir({
-        path: joinToRootDir(path),
-        directory: directory,
-        recursive,
-      });
-      emitter?.emit("create:dir", relativeByRootDir(path));
-    } catch (err) {
-      switch (err.message) {
-        case "Current directory does already exist.":
-          throw new EEXIST(path);
-        case "Parent directory must exist":
-          throw new ENOENT(path);
-        default:
-          throw err;
+
+    if (await exists(path)) {
+      throw new EEXIST(path);
+    }
+    if (recursive === false) {
+      const parent = basename(path);
+      // if not exists -> stat throw ENO
+      const statParent = await stat(parent);
+
+      if (statParent.isDirectory() === false) {
+        throw new ENOTDIR(parent);
       }
     }
+
+    await Filesystem.mkdir({
+      path: joinToRootDir(path),
+      directory: directory,
+      recursive,
+    });
+    emitter?.emit("create:dir", relatively(path));
   }
   async function rmdir(
     path: string,
@@ -168,23 +168,20 @@ export function createFilesystem(
     }
   ): Promise<void> {
     const { recursive = false } = options || {};
-    try {
-      await Filesystem.rmdir({
-        path: joinToRootDir(path),
-        directory: directory,
-        recursive,
-      });
-      emitter?.emit("remove:dir", relativeByRootDir(path));
-    } catch (err) {
-      switch (err.message) {
-        case "Folder is not empty":
-          throw new ENOTEMPTY(path);
-        case "Folder does not exist.":
-          throw new ENOENT(path);
-        default:
-          throw err;
-      }
+
+    /**
+     * @description if path not exists -> stat(called by readdir) throw ENOENT
+     */
+    if ((await readdir(path)).length > 0 && recursive === false) {
+      throw new ENOTEMPTY(path);
     }
+
+    await Filesystem.rmdir({
+      path: joinToRootDir(path),
+      directory: directory,
+      recursive,
+    });
+    emitter?.emit("remove:dir", relatively(path));
   }
   async function readdir(path: string): Promise<readonly string[]> {
     if ((await stat(path)).isDirectory()) {
@@ -213,6 +210,10 @@ export function createFilesystem(
         : options || { encoding: "utf8" };
     const { recursive = false } =
       typeof options === "string" ? {} : options || {};
+
+    if (recursive === false && (await exists(basename(path))) === false) {
+      throw new ENOENT(basename(path));
+    }
 
     try {
       if ((await stat(path)).isDirectory()) {
@@ -243,7 +244,19 @@ export function createFilesystem(
     }
 
     try {
-      try {
+      await Filesystem.writeFile({
+        path: joinToRootDir(path),
+        directory: directory,
+        encoding:
+          encoding === "base64" || encoding === "buffer"
+            ? void 0
+            : (encoding as FSEncoding),
+        data,
+        recursive,
+      });
+      emitter?.emit("write:file", relatively(path));
+    } catch (err) {
+      if (recursive) {
         await Filesystem.writeFile({
           path: joinToRootDir(path),
           directory: directory,
@@ -252,33 +265,61 @@ export function createFilesystem(
               ? void 0
               : (encoding as FSEncoding),
           data,
-          recursive,
+          recursive: false,
         });
-        emitter?.emit("write:file", relativeByRootDir(path));
-      } catch (err) {
-        if (recursive) {
-          await Filesystem.writeFile({
-            path: joinToRootDir(path),
-            directory: directory,
-            encoding:
-              encoding === "base64" || encoding === "buffer"
-                ? void 0
-                : (encoding as FSEncoding),
-            data,
-            recursive: false,
-          });
-          emitter?.emit("write:file", relativeByRootDir(path));
-        } else {
-          throw err;
-        }
-      }
-    } catch (err) {
-      if (err.message === "Parent directory must exist") {
-        throw new ENOENT(path);
+        emitter?.emit("write:file", relatively(path));
       } else {
         throw err;
       }
     }
+  }
+  async function appendFile(
+    path: string,
+    data: ArrayBuffer | Blob | string,
+    options?:
+      | {
+          readonly encoding?: Encoding;
+        }
+      | Encoding
+  ) {
+    // eslint-disable-next-line functional/no-let
+    let { encoding } =
+      typeof options === "string"
+        ? { encoding: options }
+        : options || { encoding: "utf8" };
+
+    if ((await stat(path)).isDirectory()) {
+      throw new EISDIR(path);
+    }
+
+    if (data instanceof Blob) {
+      data = await data.arrayBuffer();
+    }
+    if (data instanceof Uint8Array || data instanceof Uint16Array) {
+      data = data.buffer;
+    }
+    if (data instanceof ArrayBuffer) {
+      data = arrayBufferToBase64(data);
+      encoding = "base64";
+    }
+
+    if (base64Alway && typeof data === "string") {
+      if (encoding !== "base64") {
+        data = encode(data);
+      }
+      encoding = "base64";
+    }
+
+    await Filesystem.appendFile({
+      path: joinToRootDir(path),
+      directory: directory,
+      encoding:
+        encoding === "base64" || encoding === "buffer"
+          ? void 0
+          : (encoding as FSEncoding),
+      data,
+    });
+    emitter?.emit("write:file", relatively(path));
   }
   async function readFile(
     path: string,
@@ -379,87 +420,117 @@ export function createFilesystem(
         path: joinToRootDir(path),
         directory: directory,
       });
-      emitter?.emit("remove:file", relativeByRootDir(path));
+      emitter?.emit("remove:file", relatively(path));
     } catch {
-      throw new ENOENT(path);
-    }
-  }
-  async function rename(oldPath: string, newPath: string): Promise<void> {
-    try {
-      await fixStartsWidth<void>(async () => {
-        await Filesystem.rename({
-          from: joinToRootDir(oldPath),
-          to: joinToRootDir(newPath),
-          directory: directory,
-          toDirectory: directory,
-        });
-
-        if (emitter) {
-          stat(newPath).then((stat) => {
-            if (stat.isDirectory()) {
-              emitter?.emit("remove:dir", relativeByRootDir(oldPath));
-              emitter?.emit("create:dir", relativeByRootDir(newPath));
-
-              emitter?.emit("move:dir", {
-                from: relativeByRootDir(oldPath),
-                to: relativeByRootDir(newPath),
-              });
-            } else {
-              emitter?.emit("remove:file", relativeByRootDir(oldPath));
-              emitter?.emit("write:file", relativeByRootDir(newPath));
-
-              emitter?.emit("move:file", {
-                from: relativeByRootDir(oldPath),
-                to: relativeByRootDir(newPath),
-              });
-            }
-          });
-        }
-      });
-    } catch (err) {
-      switch (err.message) {
-        case "Parent directory of the to path is a file":
-          throw new ENOTDIR(newPath);
-        case "Cannot overwrite a directory with a file":
-          throw new EISDIR(newPath);
-        case "Cannot move a directory over an existing object":
-          throw new EEXIST(newPath);
-        default:
-          throw new ENOENT(oldPath);
+      if (removeAll === false) {
+        throw new ENOENT(path);
       }
     }
   }
-  async function copy(oldPath: string, newPath: string): Promise<void> {
+  async function isDirectory(path: string): Promise<boolean> {
     try {
-      await fixStartsWidth<void>(async () => {
-        await Filesystem.copy({
-          from: joinToRootDir(oldPath),
-          to: joinToRootDir(newPath),
-          directory: directory,
-          toDirectory: directory,
-        });
+      if ((await stat(path)).isDirectory()) {
+        return true;
+      }
+      // eslint-disable-next-line no-empty
+    } catch {}
+
+    return false;
+  }
+  async function isFile(path: string): Promise<boolean> {
+    try {
+      if ((await stat(path)).isFile()) {
+        return true;
+      }
+      // eslint-disable-next-line no-empty
+    } catch {}
+
+    return false;
+  }
+  async function rename(oldPath: string, newPath: string): Promise<void> {
+    const statOld = await stat(oldPath); // if not exists throw ENOENT
+
+    if ((await stat(basename(newPath))).isDirectory() === false) {
+      throw new ENOTDIR(basename(newPath));
+    }
+
+    const newPathIsDirectory = await isDirectory(newPath);
+    if (newPathIsDirectory && statOld.isFile()) {
+      throw new EISDIR(newPath);
+    }
+
+    /// if run it code -> statOld.type === statNew.type
+    if (statOld.isDirectory() && newPathIsDirectory) {
+      /// oldPath & newPath is directory
+      throw new EEXIST(newPath);
+    }
+
+    await fixStartsWidth<void>(async () => {
+      await Filesystem.rename({
+        from: joinToRootDir(oldPath),
+        to: joinToRootDir(newPath),
+        directory: directory,
+        toDirectory: directory,
       });
 
       if (emitter) {
         stat(newPath).then((stat) => {
           if (stat.isDirectory()) {
-            emitter?.emit("create:dir", relativeByRootDir(newPath));
+            emitter?.emit("remove:dir", relatively(oldPath));
+            emitter?.emit("create:dir", relatively(newPath));
+
+            emitter?.emit("move:dir", {
+              from: relatively(oldPath),
+              to: relatively(newPath),
+            });
           } else {
-            emitter?.emit("write:file", relativeByRootDir(newPath));
+            emitter?.emit("remove:file", relatively(oldPath));
+            emitter?.emit("write:file", relatively(newPath));
+
+            emitter?.emit("move:file", {
+              from: relatively(oldPath),
+              to: relatively(newPath),
+            });
           }
         });
       }
-    } catch (err) {
-      switch (err.message) {
-        case "Parent directory of the to path is a file":
-          throw new ENOTDIR(newPath);
-        case "Cannot overwrite a directory with a file":
-          throw new EISDIR(newPath);
-        case "Cannot move a directory over an existing object":
-          throw new EEXIST(newPath);
-        default:
-          throw new ENOENT(oldPath);
-      }
+    });
+  }
+  async function copy(oldPath: string, newPath: string): Promise<void> {
+    const statOld = await stat(oldPath); // if not exists throw ENOENT
+
+    if ((await stat(basename(newPath))).isDirectory() === false) {
+      throw new ENOTDIR(basename(newPath));
+    }
+
+    const newPathIsDirectory = await isDirectory(newPath);
+    if (newPathIsDirectory && statOld.isFile()) {
+      throw new EISDIR(newPath);
+    }
+
+    /// if run it code -> statOld.type === statNew.type
+    if (statOld.isDirectory() && newPathIsDirectory) {
+      /// oldPath & newPath is directory
+      throw new EEXIST(newPath);
+    }
+
+    await fixStartsWidth<void>(async () => {
+      await Filesystem.copy({
+        from: joinToRootDir(oldPath),
+        to: joinToRootDir(newPath),
+        directory: directory,
+        toDirectory: directory,
+      });
+    });
+
+    if (emitter) {
+      stat(newPath).then((stat) => {
+        if (stat.isDirectory()) {
+          emitter?.emit("create:dir", relatively(newPath));
+        } else {
+          emitter?.emit("write:file", relatively(newPath));
+        }
+      });
     }
   }
   async function stat(path: string): Promise<Stat>;
@@ -695,9 +766,9 @@ export function createFilesystem(
   }
 
   const __proto__ = {
-    initRootDir,
+    init,
     clear,
-    relativeByRootDir,
+    relatively,
     isEqual,
     isParentDir,
     replaceParentDir,
@@ -711,12 +782,15 @@ export function createFilesystem(
     copy,
     stat,
     exists,
+    isDirectory,
+    isFile,
     lstat,
     symlink,
     readlink,
     backFile,
     du,
     getUri,
+    appendFile,
     on,
     watch,
   };

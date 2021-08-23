@@ -215,10 +215,10 @@
     "@babel/helper-validator-identifier" "^7.14.9"
     to-fast-properties "^2.0.0"
 
-"@capacitor/core@^3.1.2":
-  version "3.1.2"
-  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-3.1.2.tgz#0e4691ca098e1ff5bd96105b9523122768e8657d"
-  integrity sha512-cMqDY4JTNtyonqVPYxHqbmN3M3jlEBnQxecptlR+6yk/ZuhUwOJTHT1ActXRLyrQ8XIc74+9Yd37fwjWckSwFg==
+"@capacitor/core@^3.2.0":
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-3.2.0.tgz#1c05538c50577881fa99a98810106e94aa1e8733"
+  integrity sha512-OJJFk54QSA0r35ElIpNfVDJImGGemspn4dVlFAujfxoAFIGTYiLzVF6Sj5o4cBpm3DZKs4ai152S9qeFdFcnZA==
   dependencies:
     tslib "^2.1.0"
 
@@ -1106,18 +1106,6 @@ caniuse-lite@^1.0.30001248:
   version "1.0.30001251"
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001251.tgz#6853a606ec50893115db660f82c094d18f096d85"
   integrity sha512-HOe1r+9VkU4TFmnU70z+r7OLmtR+/chB1rdcJUeQlAinjEeb0cKL20tlAtOagNZhbrtLnCvV19B4FmF1rgzl6A==
-
-capacitor-fs@^0.0.33:
-  version "0.0.33"
-  resolved "https://registry.yarnpkg.com/capacitor-fs/-/capacitor-fs-0.0.33.tgz#96c32394fc7c2082171fa90499d6071a848288f7"
-  integrity sha512-evJrgZb5lvv/IK17ZxJb+HAAr24BgImZhclyBbB6BcEJgvC+pwMdZ5jZIzUDZxFodDT3X+R+rlB0PzlAESs6MA==
-  dependencies:
-    "@capacitor/core" "^3.1.2"
-    "@capacitor/filesystem" "^1.0.2"
-    base-64 "^1.0.0"
-    minimatch "^3.0.4"
-    mitt "^3.0.0"
-    path-cross "^0.0.3"
 
 chalk@^2.0.0, chalk@^2.4.1, chalk@^2.4.2:
   version "2.4.2"
