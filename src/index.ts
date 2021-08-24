@@ -231,7 +231,7 @@ export function createFilesystem(
         throw new EISDIR(path);
       }
     } catch (err) {
-      if (err instanceof ENOENT === false) {
+      if (err instanceof EISDIR) {
         throw err;
       }
     }
