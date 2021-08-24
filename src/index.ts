@@ -64,6 +64,7 @@ type OptionsConstructor = {
   readonly directory: Directory;
   readonly base64Alway?: boolean;
   readonly watcher?: boolean;
+  readonly warning?: boolean;
 };
 
 export function createFilesystem(
@@ -75,6 +76,7 @@ export function createFilesystem(
     directory,
     base64Alway = false,
     watcher = true,
+    warning = false,
   } = options;
 
   const emitter = watcher ? mitt<Events>() : void 0;
@@ -159,11 +161,17 @@ export function createFilesystem(
       }
     }
 
-    await Filesystem.mkdir({
-      path: joinToRootDir(path),
-      directory: directory,
-      recursive,
-    });
+    try {
+      await Filesystem.mkdir({
+        path: joinToRootDir(path),
+        directory: directory,
+        recursive,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
+      }
+    }
     emitter?.emit("create:dir", relatively(path));
   }
   async function rmdir(
@@ -181,19 +189,33 @@ export function createFilesystem(
       throw new ENOTEMPTY(path);
     }
 
-    await Filesystem.rmdir({
-      path: joinToRootDir(path),
-      directory: directory,
-      recursive,
-    });
+    try {
+      await Filesystem.rmdir({
+        path: joinToRootDir(path),
+        directory: directory,
+        recursive,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
+      }
+    }
     emitter?.emit("remove:dir", relatively(path));
   }
   async function readdir(path: string): Promise<readonly string[]> {
     if ((await stat(path)).isDirectory()) {
-      return await Filesystem.readdir({
-        path: joinToRootDir(path),
-        directory: directory,
-      }).then(({ files }) => files);
+      try {
+        return await Filesystem.readdir({
+          path: joinToRootDir(path),
+          directory: directory,
+        }).then(({ files }) => files);
+      } catch (err) {
+        if (warning) {
+          console.warn(err);
+        }
+
+        return [];
+      }
     } else {
       throw new ENOTDIR(path);
     }
@@ -254,15 +276,21 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    await Filesystem.writeFile({
-      path: joinToRootDir(path),
-      directory: directory,
-      encoding:
-        encoding === "base64" || encoding === "buffer"
-          ? void 0
-          : (encoding as FSEncoding),
-      data,
-    });
+    try {
+      await Filesystem.writeFile({
+        path: joinToRootDir(path),
+        directory: directory,
+        encoding:
+          encoding === "base64" || encoding === "buffer"
+            ? void 0
+            : (encoding as FSEncoding),
+        data,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
+      }
+    }
     emitter?.emit("write:file", relatively(path));
   }
   async function appendFile(
@@ -302,15 +330,21 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    await Filesystem.appendFile({
-      path: joinToRootDir(path),
-      directory: directory,
-      encoding:
-        encoding === "base64" || encoding === "buffer"
-          ? void 0
-          : (encoding as FSEncoding),
-      data,
-    });
+    try {
+      await Filesystem.appendFile({
+        path: joinToRootDir(path),
+        directory: directory,
+        encoding:
+          encoding === "base64" || encoding === "buffer"
+            ? void 0
+            : (encoding as FSEncoding),
+        data,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
+      }
+    }
     emitter?.emit("write:file", relatively(path));
   }
   async function readFile(
@@ -458,12 +492,18 @@ export function createFilesystem(
     }
 
     await fixStartsWidth<void>(async () => {
-      await Filesystem.rename({
-        from: joinToRootDir(oldPath),
-        to: joinToRootDir(newPath),
-        directory: directory,
-        toDirectory: directory,
-      });
+      try {
+        await Filesystem.rename({
+          from: joinToRootDir(oldPath),
+          to: joinToRootDir(newPath),
+          directory: directory,
+          toDirectory: directory,
+        });
+      } catch (err) {
+        if (warning) {
+          console.warn(err);
+        }
+      }
 
       if (emitter) {
         stat(newPath).then((stat) => {
@@ -507,12 +547,18 @@ export function createFilesystem(
     }
 
     await fixStartsWidth<void>(async () => {
-      await Filesystem.copy({
-        from: joinToRootDir(oldPath),
-        to: joinToRootDir(newPath),
-        directory: directory,
-        toDirectory: directory,
-      });
+      try {
+        await Filesystem.copy({
+          from: joinToRootDir(oldPath),
+          to: joinToRootDir(newPath),
+          directory: directory,
+          toDirectory: directory,
+        });
+      } catch (err) {
+        if (warning) {
+          console.warn(err);
+        }
+      }
     });
 
     if (emitter) {
@@ -793,9 +839,4 @@ export function createFilesystem(
   };
 }
 
-// eslint-disable-next-line functional/no-class
-export default (class FS {
-  constructor(Filesystem: typeof CFS, options: OptionsConstructor) {
-    return createFilesystem(Filesystem, options);
-  }
-} as unknown as typeof createFilesystem);
+export default createFilesystem;
