@@ -142,8 +142,13 @@ export function createFilesystem(
     const { recursive = false } = options || {};
 
     if (await exists(path)) {
+      if (recursive) {
+        return;
+      }
+
       throw new EEXIST(path);
     }
+
     if (recursive === false) {
       const parent = dirname(path);
       // if not exists -> stat throw ENO
@@ -215,6 +220,12 @@ export function createFilesystem(
       throw new ENOENT(dirname(path));
     }
 
+    if (recursive) {
+      await mkdir(dirname(path), {
+        recursive: true,
+      });
+    }
+
     try {
       if ((await stat(path)).isDirectory()) {
         throw new EISDIR(path);
@@ -243,35 +254,16 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    try {
-      await Filesystem.writeFile({
-        path: joinToRootDir(path),
-        directory: directory,
-        encoding:
-          encoding === "base64" || encoding === "buffer"
-            ? void 0
-            : (encoding as FSEncoding),
-        data,
-        recursive,
-      });
-      emitter?.emit("write:file", relatively(path));
-    } catch (err) {
-      if (recursive) {
-        await Filesystem.writeFile({
-          path: joinToRootDir(path),
-          directory: directory,
-          encoding:
-            encoding === "base64" || encoding === "buffer"
-              ? void 0
-              : (encoding as FSEncoding),
-          data,
-          recursive: false,
-        });
-        emitter?.emit("write:file", relatively(path));
-      } else {
-        throw err;
-      }
-    }
+    await Filesystem.writeFile({
+      path: joinToRootDir(path),
+      directory: directory,
+      encoding:
+        encoding === "base64" || encoding === "buffer"
+          ? void 0
+          : (encoding as FSEncoding),
+      data,
+    });
+    emitter?.emit("write:file", relatively(path));
   }
   async function appendFile(
     path: string,
