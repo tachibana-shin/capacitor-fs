@@ -735,7 +735,7 @@ export function createFilesystem(
           });
         }
       } else {
-        if (path.filter((item) => minimatch(emitter, item, miniOpts))) {
+        if (path.every((item) => minimatch(emitter, item, miniOpts))) {
           cb({
             path: emitter,
             action,
