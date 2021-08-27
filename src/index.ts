@@ -687,10 +687,10 @@ export function createFilesystem(
       (param: { readonly path?: string; readonly action: keyof Events }): void;
     },
     {
-      mode,
-      type,
-      miniOpts,
-      immediate,
+      mode = void 0,
+      type = "*",
+      miniOpts = {},
+      immediate = false,
       exists,
     }: {
       readonly mode?: "absolute" | "relative" | "abstract";
@@ -698,12 +698,7 @@ export function createFilesystem(
       readonly miniOpts?: minimatch.IOptions;
       readonly immediate?: boolean;
       readonly exists?: boolean;
-    } = {
-      mode: void 0,
-      type: "*",
-      miniOpts: {},
-      immediate: false,
-    }
+    } = {}
   ): {
     (): void;
   } {
