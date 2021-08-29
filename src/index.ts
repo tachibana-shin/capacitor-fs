@@ -5,7 +5,7 @@ import type {
   Directory,
   Encoding as FSEncoding,
 } from "@capacitor/filesystem";
-import { encode } from "base-64";
+import { btoa } from "js-base64";
 import minimatch from "minimatch";
 import mitt from "mitt";
 import { dirname, extname, join, relative } from "path-cross";
@@ -271,7 +271,7 @@ export function createFilesystem(
 
     if (base64Alway && typeof data === "string") {
       if (encoding !== "base64") {
-        data = encode(data);
+        data = btoa(data);
       }
       encoding = "base64";
     }
@@ -325,7 +325,7 @@ export function createFilesystem(
 
     if (base64Alway && typeof data === "string") {
       if (encoding !== "base64") {
-        data = encode(data);
+        data = btoa(data);
       }
       encoding = "base64";
     }
@@ -390,10 +390,10 @@ export function createFilesystem(
         }); //  alway result base64
 
         if (encoding === "buffer") {
-          return base64ToArrayBuffer(alwayBase64(data));
+          return base64ToArrayBuffer(data);
         }
         if (encoding === "base64") {
-          return alwayBase64(data);
+          return data;
         }
 
         return rawText(data);

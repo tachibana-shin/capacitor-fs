@@ -1,4 +1,4 @@
-import { decode, encode } from "base-64";
+import { atob, btoa } from "js-base64";
 import { resolve } from "path-cross";
 
 export function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -10,11 +10,11 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  return encode(binary);
+  return btoa(binary);
 }
 
 export function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary_string = decode(base64);
+  const binary_string = atob(base64);
   const len = binary_string.length;
   const bytes = new Uint8Array(len);
   // eslint-disable-next-line functional/no-loop-statement, functional/no-let
@@ -25,20 +25,28 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-export function isBase64(str: string): boolean {
+function isBase64(str: string): boolean {
   try {
-    return encode(decode(str)) === str;
-  } catch (err) {
+    return str === btoa(atob(str));
+  } catch {
     return false;
   }
 }
 
 export function rawText(str: string): string {
-  if (isBase64(str)) {
-    return decode(str);
+  if (!!str && isBase64(str)) {
+    return atob(str);
   }
 
   return str;
+}
+
+export function alwayBase64(str: string): string {
+  if (!str || isBase64(str)) {
+    return str;
+  }
+
+  return btoa(str);
 }
 
 export function textToArrayBuffer(str: string): ArrayBuffer {
@@ -72,17 +80,4 @@ export function pathEquals(a: string, b: string): boolean {
 
 export function pathEqualsOrParent(path1: string, path2: string): boolean {
   return pathEquals(path1, path2) || isParentFolder(path1, path2);
-}
- 
-export function alwayBase64(str: string): string {
-  // eslint-disable-next-line no-extra-boolean-cast
-  if (!!str) {
-    if (isBase64(str)) {
-      return str;
-    }
-
-    return encode(str);
-  } else {
-    return str;
-  }
 }
