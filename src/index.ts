@@ -18,7 +18,6 @@ import {
   base64ToArrayBuffer,
   isParentFolder,
   pathEquals,
-  pathEqualsOrParent,
   rawText,
   textToArrayBuffer,
 } from "./utils";
@@ -119,6 +118,9 @@ export function createFilesystem(
   function relatively(path: string): string {
     return relative(joinToRootDir(""), joinToRootDir(path));
   }
+  function _relative(from: string, to: string): string {
+    return relative(relatively(from), relatively(to));
+  }
   function isEqual(path1: string, path2: string): boolean {
     return pathEquals(relatively(path1), relatively(path2));
   }
@@ -127,9 +129,7 @@ export function createFilesystem(
   }
   function replaceParentDir(path: string, from: string, to: string): string {
     if (isParentDir(from, path)) {
-      return relatively(
-        join(relatively(to), relative(relatively(from), relatively(path)))
-      );
+      return relatively(join(relatively(to), _relative(from, path)));
     }
 
     return path;
@@ -677,48 +677,67 @@ export function createFilesystem(
     return () => void emitter?.off(type, cb);
   }
   function watch(
-    path:
-      | string
-      | readonly string[]
-      | {
-          (): string | readonly string[];
-        },
-    cb: {
-      (param: { readonly path?: string; readonly action: keyof Events }): void;
-    },
+    path: string | readonly string[] | (() => string | readonly string[]),
+    cb: (param: {
+      readonly path: string;
+      readonly action: keyof Events;
+    }) => void | Promise<void>,
     {
       mode = void 0,
       type = "*",
       miniOpts = {},
       immediate = false,
       exists,
+      dir,
     }: {
       readonly mode?: "absolute" | "relative" | "abstract";
       readonly type?: "file" | "dir" | "*";
       readonly miniOpts?: minimatch.IOptions;
       readonly immediate?: boolean;
       readonly exists?: boolean;
+      readonly dir?: string | (() => string);
     } = {}
   ): {
     (): void;
   } {
-    const handler = (action: keyof Events, emitter: string) => {
-      if (typeof path === "function") {
-        path = path();
+    // eslint-disable-next-line functional/no-return-void
+    const handler = (action: keyof Events, emitter: string): void => {
+      // eslint-disable-next-line functional/no-let
+      let $dir = dir;
+
+      if (typeof $dir === "function") {
+        $dir = $dir();
       }
-      if (typeof path === "string") {
-        path = [path];
+
+      if ($dir) {
+        if (isParentDir($dir, emitter) === false) {
+          return void 0;
+        }
+      }
+
+      // eslint-disable-next-line functional/no-let
+      let $path = path;
+
+      if (typeof $path === "function") {
+        $path = $path();
+      }
+      if (typeof $path === "string") {
+        $path = [$path];
       }
 
       if (mode) {
         if (
-          path.some((item): boolean => {
+          $path.some((item): boolean => {
             if (mode === "absolute") {
-              return pathEquals(item, emitter);
-            } else if (mode === "relative") {
-              return isParentFolder(item, emitter);
-            } else if (mode === "abstract") {
-              return pathEqualsOrParent(item, emitter);
+              return isEqual(item, emitter);
+            }
+
+            if (mode === "relative") {
+              return isParentDir(item, emitter);
+            }
+
+            if (mode === "abstract") {
+              return isEqual(item, emitter) || isParentDir(item, emitter);
             }
 
             return false;
@@ -730,7 +749,7 @@ export function createFilesystem(
           });
         }
       } else {
-        if (path.every((item) => minimatch(emitter, item, miniOpts))) {
+        if ($path.every((item) => minimatch(emitter, item, miniOpts))) {
           cb({
             path: emitter,
             action,
@@ -775,20 +794,24 @@ export function createFilesystem(
       if (type === "file" || type === "*") {
         if (exists === undefined || exists === true) {
           cb({
+            path: "",
             action: "write:file",
           });
         } else {
           cb({
+            path: "",
             action: "remove:file",
           });
         }
       } else {
         if (exists === undefined || exists === true) {
           cb({
+            path: "",
             action: "create:dir",
           });
         } else {
           cb({
+            path: "",
             action: "remove:dir",
           });
         }
@@ -802,6 +825,7 @@ export function createFilesystem(
     init,
     clear,
     relatively,
+    relative: _relative,
     isEqual,
     isParentDir,
     replaceParentDir,
