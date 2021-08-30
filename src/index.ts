@@ -22,7 +22,7 @@ import {
   textToArrayBuffer,
 } from "./utils";
 
-async function fixStartsWidth<T>(callback: { (): Promise<T> }): Promise<T> {
+async function fixStartsWidth<T>(callback: () => Promise<T>): Promise<T> {
   const { startsWith } = String.prototype;
   // eslint-disable-next-line functional/immutable-data
   String.prototype.startsWith = function (children) {
@@ -695,7 +695,7 @@ export function createFilesystem(
       readonly miniOpts?: minimatch.IOptions;
       readonly immediate?: boolean;
       readonly exists?: boolean;
-      readonly dir?: string | (() => string);
+      readonly dir?: string | (() => string | null) | null;
     } = {}
   ): {
     (): void;
@@ -709,10 +709,13 @@ export function createFilesystem(
         $dir = $dir();
       }
 
-      if ($dir) {
-        if (isParentDir($dir, emitter) === false) {
-          return void 0;
-        }
+      if ($dir === null) {
+        //stop
+        return void 0;
+      }
+
+      if ($dir && isParentDir($dir, emitter) === false) {
+        return void 0;
       }
 
       // eslint-disable-next-line functional/no-let
@@ -758,8 +761,8 @@ export function createFilesystem(
       }
     };
 
-    // eslint-disable-next-line functional/prefer-readonly-type
-    const watchers: { (): void }[] = [];
+    // eslint-disable-next-line functional/prefer-readonly-type, functional/no-return-void
+    const watchers: (() => void)[] = [];
 
     if (type === "file" || type === "*") {
       if (exists === undefined || exists === true) {
@@ -859,3 +862,5 @@ export function createFilesystem(
 }
 
 export default createFilesystem;
+
+export { Stat, StatBigInt };
