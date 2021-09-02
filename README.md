@@ -2,6 +2,8 @@
 
 This is a lightning-fs based library created to support the use of filesystem on framework capacitor.
 
+> Important: I fixed the `.startsWith()` on `@capacitor/filesystem@^1.0.3` so we don't need `fixStartsWith()` anymore. if you are using package `@capacitor/filesystem@^1.0.3` you can safely update to `capacitor-fs^0.0.40` if you use `@capacitor/filesystem` < 1.0.3 force you to install `capacitor-fs` < 0.0.39-b1
+
 ## Usage
 
 ### `createFilesystem(Filesystem, opts?)`
@@ -147,93 +149,274 @@ All the same functions as above, but instead of passing a callback they return a
 `fs.promises = fs`
 
 
+
+
+## Other methods
+
+### `fs.init(autofix?: boolean): Promise<void>`
+
+Implement `rootDir` directory initialization if it does not exist. Options `autofix` removed `rootDir` if this is file.
+
+### `fs.clear(): Promise<void>`
+
+Empty `rootDir`
+
+### `fs.relatively(path: string): string`
+
+Returns the monotonic path of `path`. same as `path.resolve` but for `createFilesystem`
+
+### `fs.relative(from: string, to: string): string`
+
+Returns the relative path of `to` relative to `from`, same as `path.relative` but for `createFilesystem`
+
+### `fs.isEqual(path1: string, path2: string): boolean`
+
+Compare if 2 paths are the same. based on `fs.relative`. Example:
+
+``` ts
+fs.isEqual("src/index.ts", "/src/index.ts") // true
+fs.isEqual("src/index.ts", "src/posix/index.ts") // false
+fs.isEqual("src/index.ts", "src/posix/../index.ts") // true
+```
+
+### `fs.isParentDir(parent: string, path: string): boolean`
+
+Compare if path is a child of parent. Example
+``` ts
+fs.isEqual("src", "src/index.ts") // true
+fs.isEqual("src", "src/posix/../index.ts") // true
+```
+
+### `fs.replaceParentDir(path: string, parent: string, replace: string): string`
+
+Replace parent path. based on `fs.isParentDir`
+
+### `fs.isDirectory(path: string): Promise<boolean>`
+
+Return `true` if `path` exists and is `directory`.
+
+### `fs.isFile(path: string): Promise<boolean>`
+
+Return 'true' if `path` exists and is `file`.
+
+### `fs.appendFile(path: string, data: ArrayBuffer | Uint8Array | Blob | string, { encoding?: Encoding | "buffer", recursive: boolean }): Promise<void>`
+
+Same as `fs.writeFile` but writes further to the file.
+
+### `fs.on(type: Type, cb: (param: Events[Type]) => void) => () => void`
+
+Listen for file system interaction events like `write:file`, `remove:file`, `create:dir`, `remove:dir`. Return function call cancel listener.
+
+### `fs.watch(path, cb, options?: WatchOptions) => () => void)`
+
+A listener function like `fs.on` but more powerful and versatile
+
+* `path`: `string | string[] | () => string | string[]` what are we going to listen to. the input parameter is the expression pattern `path shell` or absolute path. Example `projects/*/.git/index`
+* `cb`: is a function that accepts as parameter `{ path: string, action: string }`
+
+Options object:
+
+| Param and type                                             | Description                                                                                                                                                                                                                                                    |
+|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `mode?: "absolute" | "relative" | "abstract"`            | Listening mode. * `absolute` will treat path as absolute path using `isEqual` * `relative` will treat path as relative using `isPathParent` * `abstract` is a mixture of `absolute` and `relative` * `void 0` will treat path as the uri expression of `shell` |
+| `type: ("file" | "dir" | "*") \| keyof MainEvents` = "*" | Specify which object to track                                                                                                                                                                                                                                  |
+| `miniOpts?: minimatch.IOptions` = { dot: true }            | minoptions for minimatch. **only works if `options.mode = void 0`**                                                                                                                                                                                            |
+| `immediate?: boolean`                                      | if set to `true`, cbr will be called as soon as tracking is registered                                                                                                                                                                                         |
+| `exists?: boolean`                                         | if set to `true`, `cb` will only be called when tracking objects exist                                                                                                                                                                                         |
+| `dir?: null | string | () => null | string`             | will track the path of which directory. This option is useful when `path` is a pattern                                                                                                                              
+                                           
+                                           
+## Typescript
+
 ```ts
-import { Directory, Encoding } from "@capacitor/filesystem";
+import type { Filesystem as CFS, Directory } from "@capacitor/filesystem";
+import minimatch from "minimatch";
 import { Stat, StatBigInt } from "./Stat";
-export default class FS {
-  private rootDir;
-  private directory;
-  private base64Alway;
-  constructor({
-    rootDir,
-    directory,
-    base64Alway,
-  }: {
-    readonly rootDir: string;
+declare type EncodingBuffer = "buffer";
+declare type EncodingString = "utf8" | "utf16" | "ascii" | "base64";
+declare type Encoding = EncodingString | EncodingBuffer;
+export declare type Events = {
+    readonly "write:file": string;
+    readonly "remove:file": string;
+    readonly "create:dir": string;
+    readonly "remove:dir": string;
+    readonly "*": string;
+    readonly "move:file": {
+        readonly from: string;
+        readonly to: string;
+    };
+    readonly "move:dir": {
+        readonly from: string;
+        readonly to: string;
+    };
+};
+declare type OptionsConstructor = {
+    readonly rootDir?: string;
     readonly directory: Directory;
-    readonly base64Alway: boolean;
-  });
-  private joinToRootDir;
-  promises: this;
-  mkdir(
-    path: string,
-    {
-      recursive,
-    }?: {
-      readonly recursive: boolean;
-    }
-  ): Promise<void>;
-  rmdir(
-    path: string,
-    {
-      recursive,
-    }?: {
-      readonly recursive: boolean;
-    }
-  ): Promise<void>;
-  readdir(path: string): Promise<readonly string[]>;
-  writeFile(
-    path: string,
-    data: ArrayBuffer | Uint8Array | Blob | string,
-    {
-      encoding,
-      recursive,
-    }?: {
-      readonly encoding?: Encoding | "buffer";
-      readonly recursive: boolean;
-    }
-  ): Promise<void>;
-  readFile(
-    path: string,
-    {
-      encoding,
-    }?: {
-      readonly encoding?: Encoding | "buffer";
-    }
-  ): Promise<string | ArrayBuffer>;
-  unlink(
-    path: string,
-    {
-      removeAll,
-    }?: {
-      readonly removeAll: boolean;
-    }
-  ): Promise<void>;
-  rename(oldPath: string, newPath: string): Promise<void>;
-  copy(oldPath: string, newPath: string): Promise<void>;
-  stat(
-    path: string,
-    {
-      bigint,
-    }?: {
-      readonly bigint: boolean;
-    }
-  ): Promise<Stat | StatBigInt>;
-  lstat(
-    path: string,
-    {
-      bigint,
-    }?: {
-      readonly bigint: boolean;
-    }
-  ): Promise<Stat | StatBigInt>;
-  symlink(target: string, path: string): Promise<void>;
-  readlink(path: string): Promise<string>;
-  backFile(filepath: string): Promise<number>;
-  du(path: string): Promise<number>;
-}
+    readonly base64Alway?: boolean;
+    readonly watcher?: boolean;
+    readonly warning?: boolean;
+};
+export declare function createFilesystem(Filesystem: typeof CFS, options: OptionsConstructor): {
+    promises: {
+        init: (autofix?: boolean) => Promise<void>;
+        clear: () => Promise<void>;
+        relatively: (path: string) => string;
+        relative: (from: string, to: string) => string;
+        isEqual: (path1: string, path2: string) => boolean;
+        isParentDir: (parent: string, path: string) => boolean;
+        replaceParentDir: (path: string, from: string, to: string) => string;
+        mkdir: (path: string, options?: {
+            readonly recursive?: boolean | undefined;
+        } | undefined) => Promise<void>;
+        rmdir: (path: string, options?: {
+            readonly recursive?: boolean | undefined;
+        } | undefined) => Promise<void>;
+        readdir: (path: string) => Promise<readonly string[]>;
+        writeFile: (path: string, data: ArrayBuffer | Blob | string, options?: Encoding | {
+            readonly recursive?: boolean | undefined;
+            readonly encoding?: Encoding | undefined;
+        } | undefined) => Promise<void>;
+        readFile: {
+            (path: string, options?: "buffer" | {
+                readonly encoding?: "buffer" | undefined;
+            } | undefined): Promise<ArrayBuffer>;
+            (path: string, options: {
+                readonly encoding: EncodingString;
+            } | EncodingString): Promise<string>;
+            (path: string, options: {
+                readonly encoding: Encoding;
+            } | Encoding): Promise<string | ArrayBuffer>;
+        };
+        unlink: (path: string, options?: {
+            readonly removeAll?: boolean | undefined;
+        } | undefined) => Promise<void>;
+        rename: (oldPath: string, newPath: string) => Promise<void>;
+        copy: (oldPath: string, newPath: string) => Promise<void>;
+        stat: {
+            (path: string): Promise<Stat>;
+            (path: string, options: {
+                readonly bigint: false;
+            }): Promise<Stat>;
+            (path: string, options: {
+                readonly bigint: true;
+            }): Promise<StatBigInt>;
+            (path: string, options: {
+                readonly bigint: boolean;
+            }): Promise<Stat | StatBigInt>;
+        };
+        exists: (path: string) => Promise<boolean>;
+        isDirectory: (path: string) => Promise<boolean>;
+        isFile: (path: string) => Promise<boolean>;
+        lstat: (path: string, options?: {
+            readonly bigint: boolean;
+        } | undefined) => Promise<Stat | StatBigInt>;
+        symlink: (target: string, path: string) => Promise<void>;
+        readlink: (path: string) => Promise<string>;
+        backFile: (filepath: string) => Promise<number>;
+        du: (path: string) => Promise<number>;
+        getUri: (path: string) => Promise<string>;
+        appendFile: (path: string, data: ArrayBuffer | Blob | string, options?: Encoding | {
+            readonly encoding?: Encoding | undefined;
+        } | undefined) => Promise<void>;
+        on: <Type extends keyof Events>(type: Type, cb: (param: Events[Type]) => void) => {
+            (): void;
+        };
+        watch: (path: string | readonly string[] | (() => string | readonly string[]), cb: (param: {
+            readonly path: string;
+            readonly action: keyof Events;
+        }) => void | Promise<void>, { mode, type, miniOpts, immediate, exists, dir, }?: {
+            readonly mode?: "absolute" | "relative" | "abstract" | undefined;
+            readonly type?: "*" | "file" | "dir" | undefined;
+            readonly miniOpts?: minimatch.IOptions | undefined;
+            readonly immediate?: boolean | undefined;
+            readonly exists?: boolean | undefined;
+            readonly dir?: string | (() => string | null) | null | undefined;
+        }) => {
+            (): void;
+        };
+    };
+    init: (autofix?: boolean) => Promise<void>;
+    clear: () => Promise<void>;
+    relatively: (path: string) => string;
+    relative: (from: string, to: string) => string;
+    isEqual: (path1: string, path2: string) => boolean;
+    isParentDir: (parent: string, path: string) => boolean;
+    replaceParentDir: (path: string, from: string, to: string) => string;
+    mkdir: (path: string, options?: {
+        readonly recursive?: boolean | undefined;
+    } | undefined) => Promise<void>;
+    rmdir: (path: string, options?: {
+        readonly recursive?: boolean | undefined;
+    } | undefined) => Promise<void>;
+    readdir: (path: string) => Promise<readonly string[]>;
+    writeFile: (path: string, data: ArrayBuffer | Blob | string, options?: Encoding | {
+        readonly recursive?: boolean | undefined;
+        readonly encoding?: Encoding | undefined;
+    } | undefined) => Promise<void>;
+    readFile: {
+        (path: string, options?: "buffer" | {
+            readonly encoding?: "buffer" | undefined;
+        } | undefined): Promise<ArrayBuffer>;
+        (path: string, options: {
+            readonly encoding: EncodingString;
+        } | EncodingString): Promise<string>;
+        (path: string, options: {
+            readonly encoding: Encoding;
+        } | Encoding): Promise<string | ArrayBuffer>;
+    };
+    unlink: (path: string, options?: {
+        readonly removeAll?: boolean | undefined;
+    } | undefined) => Promise<void>;
+    rename: (oldPath: string, newPath: string) => Promise<void>;
+    copy: (oldPath: string, newPath: string) => Promise<void>;
+    stat: {
+        (path: string): Promise<Stat>;
+        (path: string, options: {
+            readonly bigint: false;
+        }): Promise<Stat>;
+        (path: string, options: {
+            readonly bigint: true;
+        }): Promise<StatBigInt>;
+        (path: string, options: {
+            readonly bigint: boolean;
+        }): Promise<Stat | StatBigInt>;
+    };
+    exists: (path: string) => Promise<boolean>;
+    isDirectory: (path: string) => Promise<boolean>;
+    isFile: (path: string) => Promise<boolean>;
+    lstat: (path: string, options?: {
+        readonly bigint: boolean;
+    } | undefined) => Promise<Stat | StatBigInt>;
+    symlink: (target: string, path: string) => Promise<void>;
+    readlink: (path: string) => Promise<string>;
+    backFile: (filepath: string) => Promise<number>;
+    du: (path: string) => Promise<number>;
+    getUri: (path: string) => Promise<string>;
+    appendFile: (path: string, data: ArrayBuffer | Blob | string, options?: Encoding | {
+        readonly encoding?: Encoding | undefined;
+    } | undefined) => Promise<void>;
+    on: <Type extends keyof Events>(type: Type, cb: (param: Events[Type]) => void) => {
+        (): void;
+    };
+    watch: (path: string | readonly string[] | (() => string | readonly string[]), cb: (param: {
+        readonly path: string;
+        readonly action: keyof Events;
+    }) => void | Promise<void>, { mode, type, miniOpts, immediate, exists, dir, }?: {
+        readonly mode?: "absolute" | "relative" | "abstract" | undefined;
+        readonly type?: "*" | "file" | "dir" | undefined;
+        readonly miniOpts?: minimatch.IOptions | undefined;
+        readonly immediate?: boolean | undefined;
+        readonly exists?: boolean | undefined;
+        readonly dir?: string | (() => string | null) | null | undefined;
+    }) => {
+        (): void;
+    };
+};
+export default createFilesystem;
+export { Stat, StatBigInt };
 ```
 
 ## License
 
-MIT
+MIT (c) 2021 [Tachibana Shin](https://github.com/tachibana-shin)

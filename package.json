@@ -1,16 +1,21 @@
 {
   "name": "capacitor-fs",
-  "version": "0.0.39-b1",
+  "version": "0.0.39",
   "description": "This is a lightning-fs based library created to support the use of filesystem on framework capacitor.",
   "main": "build/main/index.js",
   "typings": "build/main/index.d.ts",
   "module": "build/module/index.js",
-  "repository": "https://github.com/Shin-Tachibana/capacitor-fs",
+  "repository": "https://github.com/tachibana-shin/capacitor-fs",
   "license": "MIT",
   "keywords": [
     "fs",
     "capacitor",
-    "capacitor-fs"
+    "capacitor-fs",
+    "filesystem",
+    "ionic",
+    "ionic-native",
+    "cordova",
+    "isomorphic-git"
   ],
   "scripts": {
     "build": "run-p build:*",
@@ -52,8 +57,8 @@
   },
   "devDependencies": {
     "@ava/typescript": "^1.1.1",
-    "@capacitor/core": "^3.2.0",
-    "@capacitor/filesystem": "^1.0.2",
+    "@capacitor/core": "^3.2.2",
+    "@capacitor/filesystem": "^1.0.3",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/minimatch": "^3.0.5",
     "@types/node": "^16.6.1",

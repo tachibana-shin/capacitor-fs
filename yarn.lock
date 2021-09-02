@@ -215,17 +215,17 @@
     "@babel/helper-validator-identifier" "^7.14.9"
     to-fast-properties "^2.0.0"
 
-"@capacitor/core@^3.2.0":
-  version "3.2.0"
-  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-3.2.0.tgz#1c05538c50577881fa99a98810106e94aa1e8733"
-  integrity sha512-OJJFk54QSA0r35ElIpNfVDJImGGemspn4dVlFAujfxoAFIGTYiLzVF6Sj5o4cBpm3DZKs4ai152S9qeFdFcnZA==
+"@capacitor/core@^3.2.2":
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/@capacitor/core/-/core-3.2.2.tgz#5926788920ba9117aa735d2941f5b2bdc4a6889a"
+  integrity sha512-xY3VyLbF0vSxQmQto6cI1PqP8idbwmfEAeaj248uuSrIYHeMc1L3RS6UN/yNBDPYPeAfNUwBhVqSTCtuZkEIcg==
   dependencies:
     tslib "^2.1.0"
 
-"@capacitor/filesystem@^1.0.2":
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/@capacitor/filesystem/-/filesystem-1.0.2.tgz#5327454addf354de0ad89e9a970443dc5563c646"
-  integrity sha512-cDxNUubS/l1WLt94pviB657l/pA17jIZQ2wQBDyTvXPflOBL0sFC4QR9TT6nuOBX2oVWsgG3HogEdmgwXeGeHA==
+"@capacitor/filesystem@^1.0.3":
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/@capacitor/filesystem/-/filesystem-1.0.3.tgz#70a5bb6c6cadfd952799b0793609d8ee077c4e92"
+  integrity sha512-7vmIGsO/qheb20xbaY9/ohLDD1BPEcp7EcX/LV6CFB3R0fMqPp43mg85Yy6WnC2nV5mR27xtzkcSEndRVsHshg==
 
 "@commitlint/execute-rule@^13.0.0":
   version "13.0.0"

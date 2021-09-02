@@ -22,24 +22,11 @@ import {
   textToArrayBuffer,
 } from "./utils";
 
-async function fixStartsWidth<T>(callback: () => Promise<T>): Promise<T> {
-  const { startsWith } = String.prototype;
-  // eslint-disable-next-line functional/immutable-data
-  String.prototype.startsWith = function (children) {
-    // eslint-disable-next-line functional/no-this-expression
-    return isParentFolder(children, this as string);
-  };
-  const result = await callback();
-  // eslint-disable-next-line functional/immutable-data
-  String.prototype.startsWith = startsWith;
-  return result;
-}
-
 type EncodingBuffer = "buffer";
 type EncodingString = "utf8" | "utf16" | "ascii" | "base64";
 type Encoding = EncodingString | EncodingBuffer;
 
-export type Events = {
+type MainEvents = {
   readonly "write:file": string;
   readonly "remove:file": string;
 
@@ -47,7 +34,8 @@ export type Events = {
   readonly "remove:dir": string;
 
   readonly "*": string;
-
+};
+type Events = MainEvents & {
   readonly "move:file": {
     readonly from: string;
     readonly to: string;
@@ -491,42 +479,40 @@ export function createFilesystem(
       throw new EEXIST(newPath);
     }
 
-    await fixStartsWidth<void>(async () => {
-      try {
-        await Filesystem.rename({
-          from: joinToRootDir(oldPath),
-          to: joinToRootDir(newPath),
-          directory: directory,
-          toDirectory: directory,
-        });
-      } catch (err) {
-        if (warning) {
-          console.warn(err);
+    try {
+      await Filesystem.rename({
+        from: joinToRootDir(oldPath),
+        to: joinToRootDir(newPath),
+        directory: directory,
+        toDirectory: directory,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
+      }
+    }
+
+    if (emitter) {
+      stat(newPath).then((stat) => {
+        if (stat.isDirectory()) {
+          emitter?.emit("remove:dir", relatively(oldPath));
+          emitter?.emit("create:dir", relatively(newPath));
+
+          emitter?.emit("move:dir", {
+            from: relatively(oldPath),
+            to: relatively(newPath),
+          });
+        } else {
+          emitter?.emit("remove:file", relatively(oldPath));
+          emitter?.emit("write:file", relatively(newPath));
+
+          emitter?.emit("move:file", {
+            from: relatively(oldPath),
+            to: relatively(newPath),
+          });
         }
-      }
-
-      if (emitter) {
-        stat(newPath).then((stat) => {
-          if (stat.isDirectory()) {
-            emitter?.emit("remove:dir", relatively(oldPath));
-            emitter?.emit("create:dir", relatively(newPath));
-
-            emitter?.emit("move:dir", {
-              from: relatively(oldPath),
-              to: relatively(newPath),
-            });
-          } else {
-            emitter?.emit("remove:file", relatively(oldPath));
-            emitter?.emit("write:file", relatively(newPath));
-
-            emitter?.emit("move:file", {
-              from: relatively(oldPath),
-              to: relatively(newPath),
-            });
-          }
-        });
-      }
-    });
+      });
+    }
   }
   async function copy(oldPath: string, newPath: string): Promise<void> {
     const statOld = await stat(oldPath); // if not exists throw ENOENT
@@ -546,20 +532,18 @@ export function createFilesystem(
       throw new EEXIST(newPath);
     }
 
-    await fixStartsWidth<void>(async () => {
-      try {
-        await Filesystem.copy({
-          from: joinToRootDir(oldPath),
-          to: joinToRootDir(newPath),
-          directory: directory,
-          toDirectory: directory,
-        });
-      } catch (err) {
-        if (warning) {
-          console.warn(err);
-        }
+    try {
+      await Filesystem.copy({
+        from: joinToRootDir(oldPath),
+        to: joinToRootDir(newPath),
+        directory: directory,
+        toDirectory: directory,
+      });
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
       }
-    });
+    }
 
     if (emitter) {
       stat(newPath).then((stat) => {
@@ -669,18 +653,34 @@ export function createFilesystem(
     cb: {
       (param: Events[Type]): void;
     }
-  ): {
-    (): void;
-  } {
+    // eslint-disable-next-line functional/no-return-void
+  ): () => void {
     emitter?.on(type, cb);
 
     return () => void emitter?.off(type, cb);
   }
-  function watch(
+
+  type WatchOptions = {
+    readonly mode?: "absolute" | "relative" | "abstract";
+    readonly type?: ("file" | "dir" | "*") | keyof MainEvents;
+    readonly miniOpts?: minimatch.IOptions;
+    readonly immediate?: boolean;
+    readonly exists?: boolean;
+    readonly dir?: string | (() => string | null) | null;
+  };
+  type ActionsPossible = {
+    readonly [T in keyof MainEvents]: T;
+  } & {
+    readonly file: "write:file" | "remove:file";
+    readonly dir: "create:dir" | "remove:dir";
+    readonly "*": keyof MainEvents;
+  };
+
+  function watch<ActionName extends ("file" | "dir" | "*") | keyof MainEvents>(
     path: string | readonly string[] | (() => string | readonly string[]),
     cb: (param: {
       readonly path: string;
-      readonly action: keyof Events;
+      readonly action: ActionsPossible[ActionName];
     }) => void | Promise<void>,
     {
       mode = void 0,
@@ -689,19 +689,19 @@ export function createFilesystem(
       immediate = false,
       exists,
       dir,
-    }: {
-      readonly mode?: "absolute" | "relative" | "abstract";
-      readonly type?: "file" | "dir" | "*";
-      readonly miniOpts?: minimatch.IOptions;
-      readonly immediate?: boolean;
-      readonly exists?: boolean;
-      readonly dir?: string | (() => string | null) | null;
-    } = {}
-  ): {
-    (): void;
-  } {
+    }: WatchOptions = {}
     // eslint-disable-next-line functional/no-return-void
-    const handler = (action: keyof Events, emitter: string): void => {
+  ): () => void {
+    miniOpts = {
+      dot: true,
+      ...miniOpts,
+    };
+
+    const handler = (
+      action: ActionsPossible[ActionName],
+      emitter: string
+      // eslint-disable-next-line functional/no-return-void
+    ): void => {
       // eslint-disable-next-line functional/no-let
       let $dir = dir;
 
@@ -768,13 +768,15 @@ export function createFilesystem(
       if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          on("write:file", (emitter) => handler("write:file", emitter))
+          on("write:file", (emitter) => handler("write:file" as never, emitter))
         );
       }
       if (exists === undefined || exists === false) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          on("remove:file", (emitter) => handler("remove:file", emitter))
+          on("remove:file", (emitter) =>
+            handler("remove:file" as never, emitter)
+          )
         );
       }
     }
@@ -782,42 +784,67 @@ export function createFilesystem(
       if (exists === undefined || exists === true) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          on("create:dir", (emitter) => handler("create:dir", emitter))
+          on("create:dir", (emitter) => handler("create:dir" as never, emitter))
         );
       }
       if (exists === undefined || exists === false) {
         // eslint-disable-next-line functional/immutable-data
         watchers.push(
-          on("remove:dir", (emitter) => handler("remove:dir", emitter))
+          on("remove:dir", (emitter) => handler("remove:dir" as never, emitter))
         );
       }
     }
 
+    if (type !== "file" && type !== "dir") {
+      // eslint-disable-next-line functional/immutable-data
+      watchers.push(on(type, (emitter) => handler(type as never, emitter)));
+    }
+
     if (immediate) {
+      // eslint-disable-next-line functional/no-let
+      let $path = path;
+
+      if (typeof $path === "function") {
+        $path = $path();
+      }
+      if (typeof $path === "string") {
+        $path = [$path];
+      }
+
+      const pathDefault = $path[0];
+
       if (type === "file" || type === "*") {
         if (exists === undefined || exists === true) {
           cb({
-            path: "",
-            action: "write:file",
+            path: pathDefault,
+            action: "write:file" as never,
           });
         } else {
           cb({
-            path: "",
-            action: "remove:file",
+            path: pathDefault,
+            action: "remove:file" as never,
           });
         }
-      } else {
+      }
+      if (type === "dir") {
         if (exists === undefined || exists === true) {
           cb({
-            path: "",
-            action: "create:dir",
+            path: pathDefault,
+            action: "create:dir" as never,
           });
         } else {
           cb({
-            path: "",
-            action: "remove:dir",
+            path: pathDefault,
+            action: "remove:dir" as never,
           });
         }
+      }
+
+      if (type !== "file" && type !== "dir") {
+        cb({
+          path: pathDefault,
+          action: type as never,
+        });
       }
     }
 
@@ -864,3 +891,5 @@ export function createFilesystem(
 export default createFilesystem;
 
 export { Stat, StatBigInt };
+
+export type { Encoding, MainEvents };
