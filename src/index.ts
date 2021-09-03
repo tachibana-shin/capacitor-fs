@@ -123,11 +123,11 @@ export function createFilesystem(
     return path;
   }
 
-  function statNoThrow(path: string): Promise<Stat | null> {
+  async function statNoThrow(path: string): Promise<Stat | null> {
     try {
-      return stat(path);
+      return await stat(path);
     } catch {
-      return Promise.resolve(null);
+      return null;
     }
   }
 
