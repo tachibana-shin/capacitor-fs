@@ -123,6 +123,14 @@ export function createFilesystem(
     return path;
   }
 
+  function statNoThrow(path: string): Promise<Stat | null> {
+    try {
+      return stat(path);
+    } catch {
+      return Promise.resolve(null);
+    }
+  }
+
   async function mkdir(
     path: string,
     options?: {
@@ -130,13 +138,17 @@ export function createFilesystem(
     }
   ): Promise<void> {
     const { recursive = false } = options || {};
+    const statThis = await statNoThrow(path);
 
-    if (await exists(path)) {
-      if (recursive) {
-        return;
-      }
+    /**
+     * if stat & stat.isFile() -> throw
+     */
 
+    if (statThis?.isFile()) {
       throw new EEXIST(path);
+    }
+    if (statThis?.isDirectory() && recursive) {
+      return;
     }
 
     if (recursive === false) {
@@ -152,7 +164,7 @@ export function createFilesystem(
     try {
       await Filesystem.mkdir({
         path: joinToRootDir(path),
-        directory: directory,
+        directory,
         recursive,
       });
     } catch (err) {
@@ -169,11 +181,16 @@ export function createFilesystem(
     }
   ): Promise<void> {
     const { recursive = false } = options || {};
+    const statThis = await stat(path);
+
+    if (statThis.isDirectory() === false) {
+      throw new ENOENT(path);
+    }
 
     /**
      * @description if path not exists -> stat(called by readdir) throw ENOENT
      */
-    if ((await readdir(path)).length > 0 && recursive === false) {
+    if (recursive === false && (await readdir(path)).length > 0) {
       throw new ENOTEMPTY(path);
     }
 
@@ -236,14 +253,8 @@ export function createFilesystem(
       });
     }
 
-    try {
-      if ((await stat(path)).isDirectory()) {
-        throw new EISDIR(path);
-      }
-    } catch (err) {
-      if (err instanceof EISDIR) {
-        throw err;
-      }
+    if (await isDirectory(path)) {
+      throw new EISDIR(path);
     }
 
     if (data instanceof Blob) {
@@ -257,10 +268,10 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    if (base64Alway && typeof data === "string") {
-      if (encoding !== "base64") {
-        data = btoa(data);
-      }
+    // data is string
+    if (base64Alway && encoding !== "base64") {
+      // if data is not blob
+      data = btoa(data);
       encoding = "base64";
     }
 
@@ -286,6 +297,7 @@ export function createFilesystem(
     data: ArrayBuffer | Blob | string,
     options?:
       | {
+          readonly recursive?: boolean;
           readonly encoding?: Encoding;
         }
       | Encoding
@@ -295,8 +307,20 @@ export function createFilesystem(
       typeof options === "string"
         ? { encoding: options }
         : options || { encoding: "utf8" };
+    const { recursive = false } =
+      typeof options === "string" ? {} : options || {};
 
-    if ((await stat(path)).isDirectory()) {
+    if (recursive === false && (await exists(dirname(path))) === false) {
+      throw new ENOENT(dirname(path));
+    }
+
+    if (recursive) {
+      await mkdir(dirname(path), {
+        recursive: true,
+      });
+    }
+
+    if (await isDirectory(path)) {
       throw new EISDIR(path);
     }
 
@@ -311,10 +335,10 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    if (base64Alway && typeof data === "string") {
-      if (encoding !== "base64") {
-        data = btoa(data);
-      }
+    // data is string
+    if (base64Alway && encoding !== "base64") {
+      // if data is not blob
+      data = btoa(data);
       encoding = "base64";
     }
 
@@ -369,6 +393,12 @@ export function createFilesystem(
   ): Promise<string | ArrayBuffer> {
     const { encoding = "buffer" } =
       typeof options === "string" ? { encoding: options } : options || {};
+
+    const statThis = await stat(path);
+
+    if (statThis.isDirectory()) {
+      throw new EISDIR(path);
+    }
 
     try {
       if (base64Alway) {
