@@ -5,9 +5,9 @@ import type { StatResult } from "@capacitor/filesystem";
 // eslint-disable-next-line functional/no-class
 export class Stat {
   public readonly type: string;
-  public readonly mode = 16822;
+  public readonly mode: number;
   public readonly size: number;
-  public readonly ino = 967;
+  public readonly ino = 1;
   public readonly mtimeMs: number;
   public readonly ctimeMs: number;
   public readonly uid = 1;
@@ -21,6 +21,12 @@ export class Stat {
     this.mtimeMs = stats.mtime;
     this.ctimeMs = stats.ctime || stats.mtime;
     this.uri = stats.uri;
+
+    if (stats.type === "file") {
+      this.mode = 438;
+    } else {
+      this.mode = 511;
+    }
   }
   isFile(): boolean {
     return this.type === "file";
@@ -36,9 +42,9 @@ export class Stat {
 // eslint-disable-next-line functional/no-class
 export class StatBigInt {
   public readonly type: string;
-  public readonly mode = BigInt(16822);
+  public readonly mode: BigInt;
   public readonly size: BigInt;
-  public readonly ino = BigInt(967);
+  public readonly ino = BigInt(1);
   public readonly mtimeMs: BigInt;
   public readonly ctimeMs: BigInt;
   public readonly uid = BigInt(1);
@@ -52,6 +58,12 @@ export class StatBigInt {
     this.mtimeMs = BigInt(stats.mtime);
     this.ctimeMs = BigInt(stats.ctime || stats.mtime);
     this.uri = stats.uri;
+
+    if (stats.type === "file") {
+      this.mode = BigInt(438);
+    } else {
+      this.mode = BigInt(511);
+    }
   }
   isFile(): boolean {
     return this.type === "file";
