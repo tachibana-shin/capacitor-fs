@@ -934,6 +934,8 @@ export function createFilesystem(
 
 export default createFilesystem;
 
+type FS = ReturnType<typeof createFilesystem>;
+
 export { Stat, StatBigInt };
 
-export type { Encoding, MainEvents };
+export type { Encoding, MainEvents, FS };
