@@ -223,7 +223,8 @@ Options object:
 | `miniOpts?: minimatch.IOptions` = { dot: true }            | minoptions for minimatch. **only works if `options.mode = void 0`**                                                                                                                                                                                            |
 | `immediate?: boolean`                                      | if set to `true`, cbr will be called as soon as tracking is registered                                                                                                                                                                                         |
 | `exists?: boolean`                                         | if set to `true`, `cb` will only be called when tracking objects exist                                                                                                                                                                                         |
-| `dir?: null | string | () => null | string`             | will track the path of which directory. This option is useful when `path` is a pattern                                                                                                                              
+| `dir?: null | string | () => null | string`             | will track the path of which directory. This option is useful when `path` is a pattern
+| `exclude?: string[] | (() => string[])` | Exclude                                               
                                            
                                            
 ## Typescript

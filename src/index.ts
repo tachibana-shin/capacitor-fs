@@ -697,6 +697,7 @@ export function createFilesystem(
     readonly immediate?: boolean;
     readonly exists?: boolean;
     readonly dir?: string | (() => string | null) | null;
+    readonly exclude?: readonly string[] | (() => readonly string[]);
   };
   type ActionsPossible = {
     readonly [T in keyof MainEvents]: T;
@@ -719,6 +720,7 @@ export function createFilesystem(
       immediate = false,
       exists,
       dir,
+      exclude,
     }: WatchOptions = {}
     // eslint-disable-next-line functional/no-return-void
   ): () => void {
@@ -756,6 +758,18 @@ export function createFilesystem(
       }
       if (typeof $path === "string") {
         $path = [$path];
+      }
+
+      // eslint-disable-next-line functional/no-let
+      let $exclude = exclude;
+
+      if (typeof $exclude === "function") {
+        $exclude = $exclude();
+      }
+      if ($exclude) {
+        if ($exclude.some((item) => minimatch(emitter, item, miniOpts))) {
+          return void 0;
+        }
       }
 
       if (mode) {
