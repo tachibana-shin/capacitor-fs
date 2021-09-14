@@ -70,15 +70,9 @@ Options object:
 | ---------- | ------------------ | -------------------------------- |
 | `encoding` | Encoding | "buffer" = Encoding.UTF8 | 	The encoding to read the file in, if not provided, data is read as binary and returned as base64 encoded. Pass Encoding.UTF8 to read data as string |
 
-### `fs.unlink(path: string, { removeAll?: boolean }): Promise<void>`
+### `fs.unlink(path: string): Promise<void>`
 
 Delete a file
-
-Options object:
-
-| Param      | Type [= default]   | Description                      |
-| ---------- | ------------------ | -------------------------------- |
-| `removeAll` | boolean = false | if this option is enabled. unlink will automatically call `rmdir(path, { recursive: true })` if `path` is dir |
 
 ### `fs.rename(oldPath: string, newPath: string): Promise<void>`
 
@@ -289,9 +283,7 @@ export declare function createFilesystem(Filesystem: typeof CFS, options: Option
                 readonly encoding: Encoding;
             } | Encoding): Promise<string | ArrayBuffer>;
         };
-        unlink: (path: string, options?: {
-            readonly removeAll?: boolean | undefined;
-        } | undefined) => Promise<void>;
+        unlink: (path: string) => Promise<void>;
         rename: (oldPath: string, newPath: string) => Promise<void>;
         copy: (oldPath: string, newPath: string) => Promise<void>;
         stat: {
@@ -366,9 +358,7 @@ export declare function createFilesystem(Filesystem: typeof CFS, options: Option
             readonly encoding: Encoding;
         } | Encoding): Promise<string | ArrayBuffer>;
     };
-    unlink: (path: string, options?: {
-        readonly removeAll?: boolean | undefined;
-    } | undefined) => Promise<void>;
+    unlink: (path: string) => Promise<void>;
     rename: (oldPath: string, newPath: string) => Promise<void>;
     copy: (oldPath: string, newPath: string) => Promise<void>;
     stat: {

@@ -88,11 +88,15 @@ export function createFilesystem(
   async function clear(): Promise<void> {
     try {
       await Promise.all(
-        (
-          await readdir("")
-        ).map((item) =>
-          unlink(item, {
-            removeAll: true,
+        await readdir("").then((files) =>
+          files.map(async (item) => {
+            if (await isDirectory(item)) {
+              await rmdir(item, {
+                recursive: true,
+              });
+            } else {
+              await unlink(item);
+            }
           })
         )
       );
@@ -123,14 +127,6 @@ export function createFilesystem(
     return path;
   }
 
-  async function statNoThrow(path: string): Promise<Stat | null> {
-    try {
-      return await stat(path);
-    } catch {
-      return null;
-    }
-  }
-
   async function mkdir(
     path: string,
     options?: {
@@ -138,11 +134,7 @@ export function createFilesystem(
     }
   ): Promise<void> {
     const { recursive = false } = options || {};
-    const statThis = await statNoThrow(path);
-
-    /**
-     * if stat & stat.isFile() -> throw
-     */
+    const statThis = await stat(path).catch(() => null);
 
     if (statThis?.isFile()) {
       throw new EEXIST(path);
@@ -439,23 +431,10 @@ export function createFilesystem(
       throw new ENOENT(path);
     }
   }
-  async function unlink(
-    path: string,
-    options?: {
-      readonly removeAll?: boolean;
-    }
-  ): Promise<void> {
-    const { removeAll = false } = options || {};
+  async function unlink(path: string): Promise<void> {
     const fstat = await stat(path);
 
     if (fstat.isDirectory()) {
-      if (removeAll) {
-        await rmdir(path, {
-          recursive: true,
-        });
-
-        return void 0;
-      }
       throw new EPERM(path);
     }
 
@@ -465,9 +444,9 @@ export function createFilesystem(
         directory: directory,
       });
       emitter?.emit("remove:file", relatively(path));
-    } catch {
-      if (removeAll === false) {
-        throw new ENOENT(path);
+    } catch (err) {
+      if (warning) {
+        console.warn(err);
       }
     }
   }
