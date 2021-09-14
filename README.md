@@ -250,7 +250,6 @@ declare type OptionsConstructor = {
     readonly directory: Directory;
     readonly base64Alway?: boolean;
     readonly watcher?: boolean;
-    readonly warning?: boolean;
 };
 export declare function createFilesystem(Filesystem: typeof CFS, options: OptionsConstructor): {
     promises: {

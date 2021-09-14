@@ -51,7 +51,6 @@ type OptionsConstructor = {
   readonly directory: Directory;
   readonly base64Alway?: boolean;
   readonly watcher?: boolean;
-  readonly warning?: boolean;
 };
 
 export function createFilesystem(
@@ -63,7 +62,6 @@ export function createFilesystem(
     directory,
     base64Alway = false,
     watcher = true,
-    warning = false,
   } = options;
 
   const emitter = watcher ? mitt<Events>() : void 0;
@@ -86,22 +84,19 @@ export function createFilesystem(
     }
   }
   async function clear(): Promise<void> {
-    try {
-      await Promise.all(
-        await readdir("").then((files) =>
-          files.map(async (item) => {
-            if (await isDirectory(item)) {
-              await rmdir(item, {
-                recursive: true,
-              });
-            } else {
-              await unlink(item);
-            }
-          })
-        )
-      );
-      // eslint-disable-next-line no-empty
-    } catch {}
+    await Promise.all(
+      await readdir("").then((files) =>
+        files.map(async (item) => {
+          if (await isDirectory(item)) {
+            await rmdir(item, {
+              recursive: true,
+            });
+          } else {
+            await unlink(item);
+          }
+        })
+      )
+    ).catch(() => void 0);
   }
 
   function joinToRootDir(path: string): string {
@@ -153,17 +148,12 @@ export function createFilesystem(
       }
     }
 
-    try {
-      await Filesystem.mkdir({
-        path: joinToRootDir(path),
-        directory,
-        recursive,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.mkdir({
+      path: joinToRootDir(path),
+      directory,
+      recursive,
+    }).catch(() => void 0);
+
     emitter?.emit("create:dir", relatively(path));
   }
   async function rmdir(
@@ -186,17 +176,12 @@ export function createFilesystem(
       throw new ENOTEMPTY(path);
     }
 
-    try {
-      await Filesystem.rmdir({
-        path: joinToRootDir(path),
-        directory: directory,
-        recursive,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.rmdir({
+      path: joinToRootDir(path),
+      directory: directory,
+      recursive,
+    }).catch(() => void 0);
+
     emitter?.emit("remove:dir", relatively(path));
   }
   async function readdir(path: string): Promise<readonly string[]> {
@@ -206,11 +191,7 @@ export function createFilesystem(
           path: joinToRootDir(path),
           directory: directory,
         }).then(({ files }) => files);
-      } catch (err) {
-        if (warning) {
-          console.warn(err);
-        }
-
+      } catch {
         return [];
       }
     } else {
@@ -267,21 +248,16 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    try {
-      await Filesystem.writeFile({
-        path: joinToRootDir(path),
-        directory: directory,
-        encoding:
-          encoding === "base64" || encoding === "buffer"
-            ? void 0
-            : (encoding as FSEncoding),
-        data,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.writeFile({
+      path: joinToRootDir(path),
+      directory: directory,
+      encoding:
+        encoding === "base64" || encoding === "buffer"
+          ? void 0
+          : (encoding as FSEncoding),
+      data,
+    }).catch(() => void 0);
+
     emitter?.emit("write:file", relatively(path));
   }
   async function appendFile(
@@ -334,21 +310,16 @@ export function createFilesystem(
       encoding = "base64";
     }
 
-    try {
-      await Filesystem.appendFile({
-        path: joinToRootDir(path),
-        directory: directory,
-        encoding:
-          encoding === "base64" || encoding === "buffer"
-            ? void 0
-            : (encoding as FSEncoding),
-        data,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.appendFile({
+      path: joinToRootDir(path),
+      directory: directory,
+      encoding:
+        encoding === "base64" || encoding === "buffer"
+          ? void 0
+          : (encoding as FSEncoding),
+      data,
+    }).catch(() => void 0);
+
     emitter?.emit("write:file", relatively(path));
   }
   async function readFile(
@@ -438,17 +409,12 @@ export function createFilesystem(
       throw new EPERM(path);
     }
 
-    try {
-      await Filesystem.deleteFile({
-        path: joinToRootDir(path),
-        directory: directory,
-      });
-      emitter?.emit("remove:file", relatively(path));
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.deleteFile({
+      path: joinToRootDir(path),
+      directory: directory,
+    }).catch(() => void 0);
+
+    emitter?.emit("remove:file", relatively(path));
   }
   async function isDirectory(path: string): Promise<boolean> {
     try {
@@ -488,18 +454,12 @@ export function createFilesystem(
       throw new EEXIST(newPath);
     }
 
-    try {
-      await Filesystem.rename({
-        from: joinToRootDir(oldPath),
-        to: joinToRootDir(newPath),
-        directory: directory,
-        toDirectory: directory,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.rename({
+      from: joinToRootDir(oldPath),
+      to: joinToRootDir(newPath),
+      directory: directory,
+      toDirectory: directory,
+    }).catch(() => void 0);
 
     if (emitter) {
       stat(newPath).then((stat) => {
@@ -541,18 +501,12 @@ export function createFilesystem(
       throw new EEXIST(newPath);
     }
 
-    try {
-      await Filesystem.copy({
-        from: joinToRootDir(oldPath),
-        to: joinToRootDir(newPath),
-        directory: directory,
-        toDirectory: directory,
-      });
-    } catch (err) {
-      if (warning) {
-        console.warn(err);
-      }
-    }
+    await Filesystem.copy({
+      from: joinToRootDir(oldPath),
+      to: joinToRootDir(newPath),
+      directory: directory,
+      toDirectory: directory,
+    }).catch(() => void 0);
 
     if (emitter) {
       stat(newPath).then((stat) => {
