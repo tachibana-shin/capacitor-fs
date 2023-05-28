@@ -2,8 +2,17 @@
 
 This is a lightning-fs based library created to support the use of filesystem on framework capacitor.
 
-> Important: I fixed the `.startsWith()` on `@capacitor/filesystem@^1.0.3` so we don't need `fixStartsWith()` anymore. if you are using package `@capacitor/filesystem@^1.0.3` you can safely update to `capacitor-fs^0.0.40` if you use `@capacitor/filesystem` < 1.0.3 force you to install `capacitor-fs` < 0.0.39-b1
+> Important: If you are using version `@capacitor/filesystem@1.1.0` or low please use version `0.0.41-b5` or below
 
+> If you are targeting the web i recommend using `@tachibana-shin/capacitor-filesystem` to avoid weird web behavior
+> package.json
+> ```json
+>  ...
+>  "dependencies": {
+>    "@capacitor-filesystem": "npm:@tachibana-shin/capacitor-filesystem"
+>  }
+>  ...
+> ```
 ## Usage
 
 ### `createFilesystem(Filesystem, opts?)`

@@ -5,7 +5,6 @@ import type {
   Directory,
   Encoding as FSEncoding,
 } from "@capacitor/filesystem";
-import { btoa } from "js-base64";
 import minimatch from "minimatch";
 import mitt from "mitt";
 import { dirname, extname, join, relative } from "path-cross";
@@ -13,13 +12,10 @@ import { dirname, extname, join, relative } from "path-cross";
 import { Stat, StatBigInt } from "./Stat";
 import { EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM } from "./errors";
 import {
-  alwayBase64,
-  arrayBufferToBase64,
-  base64ToArrayBuffer,
+  base64ToUint8,
   isParentFolder,
   pathEquals,
-  rawText,
-  textToArrayBuffer,
+  uint8ToBase64,
 } from "./utils";
 
 type EncodingBuffer = "buffer";
@@ -49,7 +45,6 @@ type Events = MainEvents & {
 type OptionsConstructor = {
   readonly rootDir?: string;
   readonly directory: Directory;
-  readonly base64Alway?: boolean;
   readonly watcher?: boolean;
 };
 
@@ -60,7 +55,6 @@ export function createFilesystem(
   const {
     rootDir = "/",
     directory,
-    base64Alway = false,
     watcher = true,
   } = options;
 
@@ -190,7 +184,7 @@ export function createFilesystem(
         return await Filesystem.readdir({
           path: joinToRootDir(path),
           directory: directory,
-        }).then(({ files }) => files);
+        }).then(({ files }) => files.map(item => item.name));
       } catch {
         return [];
       }
@@ -237,14 +231,7 @@ export function createFilesystem(
       data = data.buffer;
     }
     if (data instanceof ArrayBuffer) {
-      data = arrayBufferToBase64(data);
-      encoding = "base64";
-    }
-
-    // data is string
-    if (base64Alway && encoding !== "base64") {
-      // if data is not blob
-      data = btoa(data);
+      data = uint8ToBase64(new Uint8Array(data));
       encoding = "base64";
     }
 
@@ -299,14 +286,7 @@ export function createFilesystem(
       data = data.buffer;
     }
     if (data instanceof ArrayBuffer) {
-      data = arrayBufferToBase64(data);
-      encoding = "base64";
-    }
-
-    // data is string
-    if (base64Alway && encoding !== "base64") {
-      // if data is not blob
-      data = btoa(data);
+      data = uint8ToBase64(new Uint8Array(data));
       encoding = "base64";
     }
 
@@ -364,38 +344,26 @@ export function createFilesystem(
     }
 
     try {
-      if (base64Alway) {
+      if (encoding === "base64" || encoding === "buffer") {
         const { data } = await Filesystem.readFile({
           path: joinToRootDir(path),
           directory: directory,
         }); //  alway result base64
 
         if (encoding === "buffer") {
-          return base64ToArrayBuffer(data);
-        }
-        if (encoding === "base64") {
-          return data;
+          return base64ToUint8(data).buffer;
         }
 
-        return rawText(data);
+          return data;
+
       }
 
       // don't enable base64 mode
       const { data } = await Filesystem.readFile({
         path: joinToRootDir(path),
         directory: directory,
-        encoding:
-          encoding === "buffer" || encoding === "base64"
-            ? void 0
-            : (encoding as FSEncoding),
+        encoding: (encoding as FSEncoding),
       });
-
-      if (encoding === "buffer") {
-        return textToArrayBuffer(data);
-      }
-      if (encoding === "base64") {
-        return alwayBase64(data);
-      }
 
       return data;
     } catch {
@@ -547,8 +515,8 @@ export function createFilesystem(
       });
 
       if (extname(path) === ".lnk") {
-        // eslint-disable-next-line functional/immutable-data
-        stat.type = "symlink";
+        // eslint-disable-next-line functional/immutable-data, @typescript-eslint/no-explicit-any
+        (stat as unknown as any).type = "symlink";
       }
 
       if (bigint) {

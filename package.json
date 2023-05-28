@@ -28,7 +28,6 @@
     "node": ">=10"
   },
   "dependencies": {
-    "js-base64": "^3.6.1",
     "minimatch": "^3.0.4",
     "mitt": "^3.0.0",
     "path-cross": "^0.0.3"
@@ -36,7 +35,7 @@
   "devDependencies": {
     "@ava/typescript": "^1.1.1",
     "@capacitor/core": "^3.2.2",
-    "@capacitor/filesystem": "^1.0.3",
+    "@capacitor/filesystem": "^5.0.2",
     "@istanbuljs/nyc-config-typescript": "^1.0.1",
     "@types/minimatch": "^3.0.5",
     "@typescript-eslint/eslint-plugin": "^4.0.1",

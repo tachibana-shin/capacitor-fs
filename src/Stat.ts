@@ -4,7 +4,7 @@ import type { StatResult } from "@capacitor/filesystem";
 
 // eslint-disable-next-line functional/no-class
 export class Stat {
-  public readonly type: string;
+  public readonly type: "directory" | "file" | "symlink";
   public readonly mode: number;
   public readonly size: number;
   public readonly ino = 1;
