@@ -22,7 +22,8 @@
     "build:main": "tsc -p tsconfig.json",
     "build:module": "tsc -p tsconfig.module.json",
     "watch:build": "tsc -p tsconfig.json -w",
-    "prepublish": "npm run build"
+    "prepublish": "npm run build",
+    "release": "bumpp package.json --commit --tags --push && pnpm publish"
   },
   "engines": {
     "node": ">=10"
@@ -40,6 +41,7 @@
     "@types/minimatch": "^3.0.5",
     "@typescript-eslint/eslint-plugin": "^4.0.1",
     "@typescript-eslint/parser": "^4.0.1",
+    "bumpp": "^9.1.0",
     "cspell": "^4.1.0",
     "eslint": "^7.8.0",
     "eslint-config-prettier": "^6.11.0",
